@@ -1,3 +1,6 @@
+# Ignore the filedirectory Data, because these are large files (>50mb)
+data/
+
 # Created by https://www.gitignore.io/api/matlab,osx,linux,windows
 
 ### Matlab ###
