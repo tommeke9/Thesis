@@ -7,17 +7,24 @@ addpath data matconvnet-1.0-beta16
 %Variables:
 lastFClayer = 36;
 
+Disp('loading dataset')
+load('nyu_depth_v2_labeled.mat')
+Disp('dataset loaded')
+
+
 %Setup MatConvNet
 run matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
 net = load('imagenet-vgg-verydeep-16.mat') ;
+% 
+% % load and preprocess an image
+% im = imread('data/office.jpg') ;
+% im_ = single(im) ; % note: 0-255 range
+% im_ = imresize(im_, net.normalization.imageSize(1:2)) ;
+% im_ = im_ - net.normalization.averageImage ;
 
-% load and preprocess an image
-im = imread('data/office.jpg') ;
-im_ = single(im) ; % note: 0-255 range
-im_ = imresize(im_, net.normalization.imageSize(1:2)) ;
-im_ = im_ - net.normalization.averageImage ;
+
 
 % run the CNN
 res = vl_simplenn(net, im_) ;
