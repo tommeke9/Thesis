@@ -16,14 +16,21 @@ Disp('dataset loaded')
 run matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
-net = load('imagenet-vgg-verydeep-16.mat') ;
-% 
-% % load and preprocess an image
+net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED
+
+% load and preprocess an image
 % im = imread('data/office.jpg') ;
 % im_ = single(im) ; % note: 0-255 range
 % im_ = imresize(im_, net.normalization.imageSize(1:2)) ;
 % im_ = im_ - net.normalization.averageImage ;
 
+
+%--------------------Train SVM---------------------
+[height,width,channels,dbsize] = size(images);
+for i = 1:dbsize
+    
+end
+%--------------------------------------------------
 
 
 % run the CNN
