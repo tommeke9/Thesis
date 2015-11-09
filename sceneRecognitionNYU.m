@@ -7,7 +7,7 @@ addpath data matconvnet-1.0-beta16
 %Variables:
 lastFClayer = 36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
-RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 
 disp('loading dataset')
 load('nyu_depth_v2_labeled.mat')
@@ -69,7 +69,14 @@ if RunSVMTraining
         SVMLabel(negatives) = -1;
         SVMLabel(positives) = 1;
 
-        [W,B,INFO] = vl_svmtrain(lastFC,SVMLabel,0.1);
+        [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,0.1);
+        if i==1
+            W = X;
+            B = Y;
+        else
+            W = [W,X];
+            B = [B,Y];
+        end
     end
     save('svm.mat','W','B', 'uniqueScenes');
     disp('Training finished')
@@ -79,15 +86,18 @@ else
 end
 
 %---------------------------Validate---------------------------------------
-testImage = imread('data/school.jpg');
+testImage = imread('data/bookstore.jpg');
 testImage_ = single(testImage) ; % note: 0-255 range
 testImage_ = imresize(testImage_, net.normalization.imageSize(1:2)) ;
 testImage_ = testImage_ - net.normalization.averageImage ;
 res = vl_simplenn(net, testImage_(:,:,:)) ;
 lastFCTest = squeeze(gather(res(lastFClayer+1).x));
 
-scores = W.*lastFCTest + B ; %changed the * to . 
-[bestScore, best] = max(scores) ;
+for i = 1:amountOfScenes
+    scores(:,i) = W(:,i).*lastFCTest + B(i) ; %changed the * to . 
+end
+scorePerScene = sum(scores)+abs(min(sum(scores)));
+[bestScore, best] = max(scorePerScene) ;
 figure(1) ; clf ; imagesc(testImage) ;
-title(sprintf('%s (%d), score %.3f', sceneTypes{best}, best, bestScore)) ;
+title(sprintf('%s (%d), score %.3f', uniqueScenes{best}, best, bestScore)) ;
 %--------------------------------------------------------------------------
