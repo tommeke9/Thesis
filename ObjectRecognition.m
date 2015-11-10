@@ -69,7 +69,7 @@ if RunSVMTraining
         SVMLabel(negatives) = -1;
         SVMLabel(positives) = 1;
 
-        [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,0.1);
+        [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,0.1,'verbose');
         if i==1
             W = X;
             B = Y;
