@@ -7,7 +7,7 @@ addpath data matconvnet-1.0-beta16
 %Variables:
 lastFClayer = 36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
-RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
 
 disp('loading dataset')
 load('nyu_depth_v2_labeled.mat')
@@ -78,7 +78,7 @@ if RunSVMTraining
             B = [B,Y];
         end
     end
-    save('svm.mat','W','B', 'uniqueScenes');
+    save('svm.mat','W','B', 'uniqueScenes', 'amountOfScenes');
     disp('Training finished')
     %--------------------------------------------------------------------------
 else
@@ -94,10 +94,10 @@ res = vl_simplenn(net, testImage_(:,:,:)) ;
 lastFCTest = squeeze(gather(res(lastFClayer+1).x));
 
 for i = 1:amountOfScenes
-    scores(:,i) = W(:,i).*lastFCTest + B(i) ; %changed the * to . 
+    scores(:,i) = W(:,i)'*lastFCTest + B(i) ; %changed the * to . 
 end
-scorePerScene = sum(scores)+abs(min(sum(scores)));
-[bestScore, best] = max(scorePerScene) ;
+%scorePerScene = sum(scores)+abs(min(sum(scores)));
+[bestScore, best] = max(scores) ;
 figure(1) ; clf ; imagesc(testImage) ;
 title(sprintf('%s (%d), score %.3f', uniqueScenes{best}, best, bestScore)) ;
 %--------------------------------------------------------------------------
