@@ -8,7 +8,18 @@ addpath data matconvnet-1.0-beta16
 lastFClayer = 36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
+%To delete...
 AmountTestImagesPerClass = 3; %Amount of Validation Images per class
+
+ValidationPercentage = 15;
+TestPercentage = 15;
+TrainPercentage = 70;
+ClassTreshold = 20; %below this number of images in class not usefull
+
+if ValidationPercentage+TestPercentage+TrainPercentage~=100
+    disp('Check Test, Train, and Validation percentages')
+    return
+end
 
 disp('loading dataset')
 load('nyu_depth_v2_labeled.mat')
@@ -18,29 +29,33 @@ uniqueScenes = unique(sceneTypes);
 disp('dataset loaded')
 [height,width,channels,dbSize] = size(images);
 
-%Split the DB into Training and Validation (linking to original DB)
-validationIndex = 1;
+%Split the DB into Training, Test and Validation (linking to original DB)
+testIndex = 1;
 trainingIndex = 1;
+ValIndex = 1;
 for i = 1:amountOfScenes
         thisScene = uniqueScenes(i);
         locationOfScene = find(strcmp(sceneTypes,thisScene));
         for y = 1:size(locationOfScene,1)
-            if y<=AmountTestImagesPerClass
-                validationDB(validationIndex) = locationOfScene(y);
-                validationIndex = validationIndex + 1;
-                %validationDB(:,:,:,validationIndex) = images(:,:,:,locationOfScene(y));
-            else
+            if y <= round(size(locationOfScene,1)*TrainPercentage/100)
                 trainingDB(trainingIndex) = locationOfScene(y);
-                trainingIndex = trainingIndex + 1; 
-                %trainingDB(:,:,:,trainingIndex) = images(:,:,:,locationOfScene(y));
+                trainingIndex = trainingIndex + 1;
+            elseif (round(size(locationOfScene,1)*TrainPercentage/100) < y) && (y <= round(size(locationOfScene,1)*(TrainPercentage+TestPercentage)/100))
+                testDB(testIndex) = locationOfScene(y);
+                testIndex = testIndex + 1;
+            else
+                validationDB(ValIndex) = locationOfScene(y);
+                ValIndex = ValIndex + 1;
             end
         end
-        if size(locationOfScene,1)<=AmountTestImagesPerClass
-            fprintf('No trainingdata for: %s\n',thisScene{:});
+        if size(locationOfScene,1)<=ClassTreshold
+            fprintf('Not enough data for: ');
+            fprintf('%s, ',thisScene{:});
         end  
 end
 % Define the training subset of the DB
 trainingDBSize = size(trainingDB,2);
+testDBSize = size(testDB,2);
 validationDBSize = size(validationDB,2);
 
 %Setup MatConvNet
@@ -88,9 +103,9 @@ if RunSVMTraining
     %------------------------------Train SVM-----------------------------------
     disp('Train SVM')
     %New database of validate images 
-    for index = 1:trainingDBSize
-        sceneTrainTypes(index) = sceneTypes(trainingDB(index));
-    end
+    %for index = 1:trainingDBSize
+        sceneTrainTypes(:) = sceneTypes(trainingDB(:));
+    %end
     
     for i = 1:amountOfScenes
         thisScene = uniqueScenes(i);
@@ -117,12 +132,45 @@ else
     load('svm.mat');
 end
 
-%---------------------------Validate (ROC)---------------------------------------
+
+%---------------------------Validate---------------------------------------
 disp('Start validation')
-correct = 0;
 for index = 1:validationDBSize
     %Normalize
     im_temp = single(images(:,:,:,validationDB(index))) ; % note: 0-255 range
+    im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
+    im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
+    %Run CNN
+    res = vl_simplenn(net, im_(:,:,:,index)) ; 
+    lastFC = squeeze(gather(res(lastFClayer+1).x));
+    
+    for i = 1:amountOfScenes
+        scores(:,i) = W(:,i)'*lastFC + B(i) ;
+    end
+    
+    [bestScore(index), best(index)] = max(scores) ;
+    
+    %Check against given scene
+%     if strcmp(uniqueScenes{best(index)}, sceneTypes(testDB(index)))
+%         correct = correct + 1;
+%         fprintf('CORRECT: %s \n',uniqueScenes{best(index)});
+%     else
+%         fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
+%     end
+    
+    fprintf('%d of %d \n',index,testDBSize);
+end
+disp('Validation finished')
+%--------------------------------------------------------------------------
+
+
+
+%---------------------------Test (ROC)---------------------------------------
+disp('Start tests')
+correct = 0;
+for index = 1:testDBSize
+    %Normalize
+    im_temp = single(images(:,:,:,testDB(index))) ; % note: 0-255 range
     im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
     im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
     %Run CNN
@@ -136,18 +184,18 @@ for index = 1:validationDBSize
     [bestScore(index), best(index)] = max(scores) ;
     
     %Check against given scene
-    if strcmp(uniqueScenes{best(index)}, sceneTypes(validationDB(index)))
-        correct = correct + 1;
-        fprintf('CORRECT: %s \n',uniqueScenes{best(index)});
-    else
-        fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{validationDB(index)});
-    end
+%     if strcmp(uniqueScenes{best(index)}, sceneTypes(testDB(index)))
+%         correct = correct + 1;
+%         fprintf('CORRECT: %s \n',uniqueScenes{best(index)});
+%     else
+%         fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
+%     end
     
-    fprintf('%d of %d \n',index,validationDBSize);
+    fprintf('%d of %d \n',index,testDBSize);
 end
 
-disp('Validation finished')
-fprintf('Result: %d out of %d are correct\n',correct,validationDBSize);
+disp('Tests finished')
+fprintf('Result: %d out of %d are correct\n',correct,testDBSize);
 %--------------------------------------------------------------------------
 
 
