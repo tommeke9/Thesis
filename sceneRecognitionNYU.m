@@ -7,7 +7,7 @@ addpath data matconvnet-1.0-beta16
 %Variables:
 lastFClayer = 36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
-RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 %To delete...
 AmountTestImagesPerClass = 3; %Amount of Validation Images per class
 
