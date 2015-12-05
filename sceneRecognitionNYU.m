@@ -125,18 +125,21 @@ if RunSVMTraining
     
     for c = C %Better ==> Stopping condition?
         %fprintf('C= %f\n',c);
+        clear startNegatives
         %------------------------------Train SVM-----------------------------------
         for i = 1:amountOfScenes
             thisScene = uniqueScenes(i);
             %disp(thisScene)
             positives = find(strcmp(sceneTrainTypes,thisScene));
             negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
-            startNegatives = randsample(negatives,min(3*max(size(positives)),max(size(negatives))));
-            SVMLabel = zeros(trainingDBSize,1);
-            SVMLabel(startNegatives) = -1;
-            SVMLabel(positives) = 1;
-
-            [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,c);
+            startNegatives(i,:) = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
+            startNegativesTemp1 = startNegatives(i,:);
+            startNegativesTemp = startNegativesTemp1(startNegativesTemp1~=0);
+            SVMLabel = ones(size(startNegativesTemp,2)+size(positives,2),1);
+            SVMLabel(1:size(startNegativesTemp,2)) = -1;
+            lastFCOfTraining = lastFC(:,[startNegativesTemp,positives]);
+            
+            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,c);
             if i==1
                 WTemp = X;
                 BTemp = Y;
@@ -167,11 +170,13 @@ if RunSVMTraining
             %disp(thisScene)
             positives = find(strcmp(sceneTrainTypes,thisScene));
             negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
-            SVMLabel = zeros(trainingDBSize,1);
-            SVMLabel(negatives) = -1;
-            SVMLabel(positives) = 1;
-
-            [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,C(CBest));
+            startNegativesTemp1 = startNegatives(i,:);
+            startNegativesTemp = startNegativesTemp1(startNegativesTemp1~=0);
+            SVMLabel = ones(size(startNegativesTemp,2)+size(positives,2),1);
+            SVMLabel(1:size(startNegativesTemp,2)) = -1;
+            lastFCOfTraining = lastFC(:,[startNegativesTemp,positives]);
+            
+            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest));
             if i==1
                 W = X;
                 B = Y;
@@ -180,6 +185,83 @@ if RunSVMTraining
                 B = [B,Y];
             end
     end
+    %---------------------------------------------------------------------------------------------------
+    %---------------------------------------------------------------------------------------------------
+    %--------------------------Hard Negative Mining----------------------------------
+    for c = C %Better ==> Stopping condition?
+        %fprintf('C= %f\n',c);
+        %------------------------------Retrain SVM-----------------------------------
+        for i = 1:amountOfScenes
+            thisScene = uniqueScenes(i);
+            %disp(thisScene)
+            positives = find(strcmp(sceneTrainTypes,thisScene));
+            negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
+            
+            startNegativesTemp1 = startNegatives(i,:);
+            startNegativesTemp = startNegativesTemp1(startNegativesTemp1~=0);
+            negativesToDo = negatives - 
+            for index = 1:size(negatives,2)-size(startNegativesTemp,2) %All unused negatives
+                
+                scoresHardMining(:,i) = W(:,i)'*lastFCOfTraining + B(i) ;
+            end
+    
+            [bestScore(index), best(index)] = max(scoresTest) ;
+            Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
+            
+            startNegatives = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
+            SVMLabel = ones(size(startNegatives,2)+size(positives,2),1);
+            SVMLabel(1:size(startNegatives,2)) = -1;
+            lastFCOfTraining = lastFC(:,[startNegatives,positives]);
+            
+            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,c);
+            if i==1
+                WTemp = X;
+                BTemp = Y;
+            else
+                WTemp = [WTemp,X];
+                BTemp = [BTemp,Y];
+            end
+        end
+        %--------------------------Cross-Validate SVM----------------------------------
+        correct = 0;
+        for index = 1:validationDBSize
+            for i = 1:amountOfScenes
+                scoresVal(:,i) = WTemp(:,i)'*lastFCVal + BTemp(i) ;
+            end
+            [bestScore(index), best(index)] = max(scoresVal) ;
+            if strcmp(uniqueScenes{best(index)}, sceneTypes(validationDB(index)))
+                correct = correct + 1;
+            end
+        end
+        performance(find(C==c)) = correct/validationDBSize;
+    end
+    
+    clear WTemp BTemp c correct best bestScore
+    %--------------------------SVM with best param----------------------------------
+    [~,CBest] = max(performance);
+    for i = 1:amountOfScenes
+            thisScene = uniqueScenes(i);
+            %disp(thisScene)
+            positives = find(strcmp(sceneTrainTypes,thisScene));
+            negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
+            startNegatives = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
+            SVMLabel = ones(size(startNegatives,2)+size(positives,2),1);
+            SVMLabel(1:size(startNegatives,2)) = -1;
+            lastFCOfTraining = lastFC(:,[startNegatives,positives]);
+            
+            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest));
+            if i==1
+                W = X;
+                B = Y;
+            else
+                W = [W,X];
+                B = [B,Y];
+            end
+    end
+    
+    
+    %---------------------------------------------------------------------------------------------------
+    %---------------------------------------------------------------------------------------------------
     
     save('svm.mat','W','B');
     disp('Training finished')
@@ -221,8 +303,8 @@ for index = 1:testDBSize
         %fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
     end
     
-    if rem(100,index)==0
-            fprintf('%d~%d of %d \n',index-99,index,testDBSize);
+    if rem(index,100)==0
+            fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
     end
 end
 sumResult = sum(Result);
