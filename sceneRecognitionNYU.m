@@ -11,10 +11,12 @@ RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 %To delete...
 AmountTestImagesPerClass = 3; %Amount of Validation Images per class
 
+C = [0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:10000:1000000]; %All C's to Validate
+
 ValidationPercentage = 15;
 TestPercentage = 15;
 TrainPercentage = 70;
-ClassTreshold = 20; %below this number of images in class not usefull
+ClassTreshold = 20; %below this number of images in class not useful
 
 if ValidationPercentage+TestPercentage+TrainPercentage~=100
     disp('Check Test, Train, and Validation percentages')
@@ -87,7 +89,9 @@ if RunCNN
         %res(:,:,:,index) = vl_simplenn(net, im_(:,:,:,index)) ;
         res = vl_simplenn(net, im_(:,:,:,index)) ;
         lastFC(:,index) = squeeze(gather(res(lastFClayer+1).x));
-        fprintf('%d of %d \n',index,trainingDBSize);
+        if rem(100,index)==0
+            fprintf('%d~%d of %d \n',index-99,index,trainingDBSize);
+        end
         %whos('lastFC')
         %disp(num2str(index),'/',num2str(dbSize))
     end
@@ -119,11 +123,46 @@ if RunSVMTraining
         lastFCVal = squeeze(gather(resVal(lastFClayer+1).x));
     end
     
-    x=1;
-    for C = [0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:10000:1000000] %Better ==> Stopping condition!
-        fprintf('C= %f\n',C);
+    for c = C %Better ==> Stopping condition?
+        %fprintf('C= %f\n',c);
         %------------------------------Train SVM-----------------------------------
         for i = 1:amountOfScenes
+            thisScene = uniqueScenes(i);
+            %disp(thisScene)
+            positives = find(strcmp(sceneTrainTypes,thisScene));
+            negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
+            startNegatives = randsample(negatives,min(3*max(size(positives)),max(size(negatives))));
+            SVMLabel = zeros(trainingDBSize,1);
+            SVMLabel(startNegatives) = -1;
+            SVMLabel(positives) = 1;
+
+            [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,c);
+            if i==1
+                WTemp = X;
+                BTemp = Y;
+            else
+                WTemp = [WTemp,X];
+                BTemp = [BTemp,Y];
+            end
+        end
+        %--------------------------Cross-Validate SVM----------------------------------
+        correct = 0;
+        for index = 1:validationDBSize
+            for i = 1:amountOfScenes
+                scoresVal(:,i) = WTemp(:,i)'*lastFCVal + BTemp(i) ;
+            end
+            [bestScore(index), best(index)] = max(scoresVal) ;
+            if strcmp(uniqueScenes{best(index)}, sceneTypes(validationDB(index)))
+                correct = correct + 1;
+            end
+        end
+        performance(find(C==c)) = correct/validationDBSize;
+    end
+    
+    clear WTemp BTemp c correct best bestScore
+    %--------------------------SVM with best param----------------------------------
+    [~,CBest] = max(performance);
+    for i = 1:amountOfScenes
             thisScene = uniqueScenes(i);
             %disp(thisScene)
             positives = find(strcmp(sceneTrainTypes,thisScene));
@@ -132,7 +171,7 @@ if RunSVMTraining
             SVMLabel(negatives) = -1;
             SVMLabel(positives) = 1;
 
-            [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,C);
+            [X,Y,INFO] = vl_svmtrain(lastFC,SVMLabel,C(CBest));
             if i==1
                 W = X;
                 B = Y;
@@ -140,21 +179,8 @@ if RunSVMTraining
                 W = [W,X];
                 B = [B,Y];
             end
-        end
-        %--------------------------Cross-Validate SVM----------------------------------
-        correct = 0;
-        for index = 1:validationDBSize
-            for i = 1:amountOfScenes
-                scoresVal(:,i) = W(:,i)'*lastFCVal + B(i) ;
-            end
-            [bestScore(index), best(index)] = max(scoresVal) ;
-            if strcmp(uniqueScenes{best(index)}, sceneTypes(validationDB(index)))
-                correct = correct + 1;
-            end
-        end
-        performance(x) = correct/validationDBSize;
-        x = x+1;
     end
+    
     save('svm.mat','W','B');
     disp('Training finished')
     %--------------------------------------------------------------------------
@@ -165,38 +191,45 @@ end
 %scatter([0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:10000:1000000],performance);
 
 
-% %---------------------------Test (ROC)---------------------------------------
-% disp('Start tests')
-% correct = 0;
-% for index = 1:testDBSize
-%     %Normalize
-%     im_temp = single(images(:,:,:,testDB(index))) ; % note: 0-255 range
-%     im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
-%     im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
-%     %Run CNN
-%     res = vl_simplenn(net, im_(:,:,:,index)) ; 
-%     lastTrainingFC = squeeze(gather(res(lastFClayer+1).x));
-%     
-%     for i = 1:amountOfScenes
-%         scores(:,i) = W(:,i)'*lastTrainingFC + B(i) ;
-%     end
-%     
-%     [bestScore(index), best(index)] = max(scores) ;
-%     
-%     %Check against given scene
-% %     if strcmp(uniqueScenes{best(index)}, sceneTypes(testDB(index)))
-% %         correct = correct + 1;
-% %         fprintf('CORRECT: %s \n',uniqueScenes{best(index)});
-% %     else
-% %         fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
-% %     end
-%     
-%     fprintf('%d of %d \n',index,testDBSize);
-% end
-% 
-% disp('Tests finished')
-% fprintf('Result: %d out of %d are correct\n',correct,testDBSize);
-% %--------------------------------------------------------------------------
+%---------------------------Test (ROC)---------------------------------------
+disp('Start tests')
+correct = 0;
+Result = zeros(amountOfScenes,3); %columns: 1. # scenes in testDB. 2. # True Positives. 3. #False Positives
+for index = 1:testDBSize
+    %Normalize
+    im_temp = single(images(:,:,:,testDB(index))) ; % note: 0-255 range
+    im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
+    im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
+    %Run CNN
+    resTest = vl_simplenn(net, im_(:,:,:,index)) ; 
+    lastFCTest = squeeze(gather(resTest(lastFClayer+1).x));
+    
+    for i = 1:amountOfScenes
+        scoresTest(:,i) = W(:,i)'*lastFCTest + B(i) ;
+    end
+    
+    [bestScore(index), best(index)] = max(scoresTest) ;
+    Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),1) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),1) + 1; %#in testDB
+    
+    
+    %Check against given scene
+    if strcmp(uniqueScenes{best(index)}, sceneTypes(testDB(index)))
+        Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),2) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),2) + 1; %#TP
+        %fprintf('CORRECT: %s \n',uniqueScenes{best(index)});
+    else
+        Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
+        %fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
+    end
+    
+    if rem(100,index)==0
+            fprintf('%d~%d of %d \n',index-99,index,testDBSize);
+    end
+end
+sumResult = sum(Result);
+fprintf('Out of a testDB of %d ==> %dTP and %dFP \n',sumResult(1),sumResult(2),sumResult(3));
+disp('Tests finished')
+%fprintf('Result: %d out of %d are correct\n',correct,testDBSize);
+%--------------------------------------------------------------------------
 
 
 % %---------------------------MANUAL Validate---------------------------------------
