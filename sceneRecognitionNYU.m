@@ -5,13 +5,14 @@ addpath data matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
-lastFClayer = 36;
+lastFClayer = 37;%36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 %To delete...
 AmountTestImagesPerClass = 3; %Amount of Validation Images per class
 
-C = [0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:10000:1000000]; %All C's to Validate
+C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
+%C = [0.01,0.1:0.1:1.5];
 
 ValidationPercentage = 15;
 TestPercentage = 15;
@@ -56,7 +57,8 @@ for i = 1:amountOfScenes
         end  
 end
 fprintf('\n');
-% Define the training subset of the DB
+
+% Define the sizes of the DB
 trainingDBSize = size(trainingDB,2);
 testDBSize = size(testDB,2);
 validationDBSize = size(validationDB,2);
@@ -126,13 +128,14 @@ if RunSVMTraining
     for c = C %Better ==> Stopping condition?
         %fprintf('C= %f\n',c);
         clear startNegatives
+        startNegatives = zeros(amountOfScenes,trainingDBSize);
         %------------------------------Train SVM-----------------------------------
         for i = 1:amountOfScenes
             thisScene = uniqueScenes(i);
             %disp(thisScene)
             positives = find(strcmp(sceneTrainTypes,thisScene));
             negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
-            startNegatives(i,:) = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
+            startNegatives(i,1:min(3*size(positives,2),size(negatives,2))) = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
             startNegativesTemp1 = startNegatives(i,:);
             startNegativesTemp = startNegativesTemp1(startNegativesTemp1~=0);
             SVMLabel = ones(size(startNegativesTemp,2)+size(positives,2),1);
@@ -189,9 +192,10 @@ if RunSVMTraining
     %---------------------------------------------------------------------------------------------------
     %--------------------------Hard Negative Mining----------------------------------
     for c = C %Better ==> Stopping condition?
-        %fprintf('C= %f\n',c);
+        fprintf('C= %f\n',c);
         %------------------------------Retrain SVM-----------------------------------
         for i = 1:amountOfScenes
+            clear best bestScore positives negatives startNegativesTemp
             thisScene = uniqueScenes(i);
             %disp(thisScene)
             positives = find(strcmp(sceneTrainTypes,thisScene));
@@ -199,19 +203,27 @@ if RunSVMTraining
             
             startNegativesTemp1 = startNegatives(i,:);
             startNegativesTemp = startNegativesTemp1(startNegativesTemp1~=0);
-            negativesToDo = negatives - 
-            for index = 1:size(negatives,2)-size(startNegativesTemp,2) %All unused negatives
-                
-                scoresHardMining(:,i) = W(:,i)'*lastFCOfTraining + B(i) ;
+            for index = 1:size(startNegativesTemp,2)
+                negatives(negatives==startNegativesTemp(index)) = []; %Get the negatives out that are already done
             end
-    
-            [bestScore(index), best(index)] = max(scoresTest) ;
-            Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
+            for index = 1:size(negatives,2) %All unused negatives
+                for index2 = 1:amountOfScenes
+                    scoresHardMining(:,index2) = W(:,index2)'*lastFC(:,negatives(index)) + B(index2) ;
+                end
+                [bestScore(index), best(index)] = max(scoresHardMining) ;
+            end
             
-            startNegatives = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
-            SVMLabel = ones(size(startNegatives,2)+size(positives,2),1);
-            SVMLabel(1:size(startNegatives,2)) = -1;
-            lastFCOfTraining = lastFC(:,[startNegatives,positives]);
+            if exist('best') == 1
+                newNegatives = negatives(best==i); %FP
+            else
+                newNegatives = [];
+            end
+            %Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
+            clear negatives lastFCOfTraining SVMLabel
+            negatives = [startNegativesTemp, newNegatives];
+            SVMLabel = ones(size(negatives,2)+size(positives,2),1);
+            SVMLabel(1:size(negatives,2)) = -1;
+            lastFCOfTraining = lastFC(:,[negatives,positives]);
             
             [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,c);
             if i==1
@@ -236,18 +248,61 @@ if RunSVMTraining
         performance(find(C==c)) = correct/validationDBSize;
     end
     
-    clear WTemp BTemp c correct best bestScore
+    clear c correct best bestScore
     %--------------------------SVM with best param----------------------------------
     [~,CBest] = max(performance);
     for i = 1:amountOfScenes
+%             thisScene = uniqueScenes(i);
+%             %disp(thisScene)
+%             positives = find(strcmp(sceneTrainTypes,thisScene));
+%             negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
+%             startNegatives = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
+%             SVMLabel = ones(size(startNegatives,2)+size(positives,2),1);
+%             SVMLabel(1:size(startNegatives,2)) = -1;
+%             lastFCOfTraining = lastFC(:,[startNegatives,positives]);
+%             
+%             [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest));
+%             if i==1
+%                 W = X;
+%                 B = Y;
+%             else
+%                 W = [W,X];
+%                 B = [B,Y];
+%             end
+            
+            
+            
+            
+            
+            clear best bestScore positives negatives startNegativesTemp
             thisScene = uniqueScenes(i);
             %disp(thisScene)
             positives = find(strcmp(sceneTrainTypes,thisScene));
             negatives = find(strcmp(sceneTrainTypes,thisScene)==0);
-            startNegatives = randsample(negatives,min(3*size(positives,2),size(negatives,2)));
-            SVMLabel = ones(size(startNegatives,2)+size(positives,2),1);
-            SVMLabel(1:size(startNegatives,2)) = -1;
-            lastFCOfTraining = lastFC(:,[startNegatives,positives]);
+            
+            startNegativesTemp1 = startNegatives(i,:);
+            startNegativesTemp = startNegativesTemp1(startNegativesTemp1~=0);
+            for index = 1:size(startNegativesTemp,2)
+                negatives(negatives==startNegativesTemp(index)) = []; %Get the negatives out that are already done
+            end
+            for index = 1:size(negatives,2) %All unused negatives
+                for index2 = 1:amountOfScenes
+                    scoresHardMining(:,index2) = WTemp(:,index2)'*lastFC(:,negatives(index)) + BTemp(index2) ;
+                end
+                [bestScore(index), best(index)] = max(scoresHardMining) ;
+            end
+            
+            if exist('best') == 1
+                newNegatives = negatives(best==i); %FP
+            else
+                newNegatives = [];
+            end
+            %Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
+            clear negatives lastFCOfTraining SVMLabel
+            negatives = [startNegativesTemp, newNegatives];
+            SVMLabel = ones(size(negatives,2)+size(positives,2),1);
+            SVMLabel(1:size(negatives,2)) = -1;
+            lastFCOfTraining = lastFC(:,[negatives,positives]);
             
             [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest));
             if i==1
