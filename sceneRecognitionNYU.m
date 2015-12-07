@@ -5,14 +5,13 @@ addpath data matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
-lastFClayer = 37;%36;
-RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
+lastFClayer = 36;
+RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
-%To delete...
-AmountTestImagesPerClass = 3; %Amount of Validation Images per class
 
-C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
+%C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
 %C = [0.01,0.1:0.1:1.5];
+C = [0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:50000:1000000];
 
 ValidationPercentage = 15;
 TestPercentage = 15;
@@ -91,8 +90,9 @@ if RunCNN
         %res(:,:,:,index) = vl_simplenn(net, im_(:,:,:,index)) ;
         res = vl_simplenn(net, im_(:,:,:,index)) ;
         lastFC(:,index) = squeeze(gather(res(lastFClayer+1).x));
-        if rem(100,index)==0
-            fprintf('%d~%d of %d \n',index-99,index,trainingDBSize);
+        
+        if rem(index,100)==0
+            fprintf('%d ~ %d of %d \n',index-99,index,trainingDBSize);
         end
         %whos('lastFC')
         %disp(num2str(index),'/',num2str(dbSize))
@@ -325,7 +325,7 @@ else
     load('svm.mat');
 end
 
-%scatter([0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:10000:1000000],performance);
+%scatter(C,performance);
 
 
 %---------------------------Test (ROC)---------------------------------------
