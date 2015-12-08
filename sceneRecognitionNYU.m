@@ -11,7 +11,7 @@ RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 
 %C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
 %C = [0.01,0.1:0.1:1.5];
-C = [0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:50000:1000000];
+C = [0.001,0.01,0.1:0.2:1.5,2:2:100,100:200:1000,1000,1000000];
 
 ValidationPercentage = 15;
 TestPercentage = 15;
@@ -165,6 +165,10 @@ if RunSVMTraining
         performance(find(C==c)) = correct/validationDBSize;
     end
     
+%     figure;
+%     scatter(C,performance);
+    
+    
     clear WTemp BTemp c correct best bestScore
     %--------------------------SVM with best param----------------------------------
     [~,CBest] = max(performance);
@@ -191,6 +195,7 @@ if RunSVMTraining
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     %--------------------------Hard Negative Mining----------------------------------
+    clear performance
     for c = C %Better ==> Stopping condition?
         fprintf('C= %f\n',c);
         %------------------------------Retrain SVM-----------------------------------
@@ -247,6 +252,9 @@ if RunSVMTraining
         end
         performance(find(C==c)) = correct/validationDBSize;
     end
+    
+%     figure;
+%     scatter(C,performance);
     
     clear c correct best bestScore
     %--------------------------SVM with best param----------------------------------
