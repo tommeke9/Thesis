@@ -6,12 +6,12 @@ addpath data matconvnet-1.0-beta16
 %Run setup before! to compile matconvnet
 %Variables:
 lastFClayer = 36;
-RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
-RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
+RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
 
 %C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
-%C = [0.01,0.1:0.1:1.5];
-C = [0.001,0.01,0.1:0.2:1.5,2:2:100,100:200:1000,1000,1000000];
+C = [0.01,0.1:0.1:1.5];
+%C = [0.001,0.01,0.1:0.2:1.5,2:2:100,100:200:1000,1000,1000000];
 
 ValidationPercentage = 15;
 TestPercentage = 15;
@@ -24,7 +24,7 @@ if ValidationPercentage+TestPercentage+TrainPercentage~=100
 end
 
 disp('loading dataset')
-load('nyu_depth_v2_labeled.mat')
+load('nyu_depth_v2_labeled.mat','images','sceneTypes')
 clear accelData rawDepths rawDepthFilenames
 uniqueScenes = unique(sceneTypes);
 [amountOfScenes,~] = size(uniqueScenes);
@@ -102,6 +102,7 @@ if RunCNN
     disp('CNN finished')
     %--------------------------------------------------------------------------
 else
+    disp('CNN not recalculated')
     load('lastFC.mat');
 end
 
@@ -171,7 +172,7 @@ if RunSVMTraining
     
     clear WTemp BTemp c correct best bestScore
     %--------------------------SVM with best param----------------------------------
-    [~,CBest] = max(performance);
+    [~,CBest1] = max(performance);
     for i = 1:amountOfScenes
             thisScene = uniqueScenes(i);
             %disp(thisScene)
@@ -183,7 +184,7 @@ if RunSVMTraining
             SVMLabel(1:size(startNegativesTemp,2)) = -1;
             lastFCOfTraining = lastFC(:,[startNegativesTemp,positives]);
             
-            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest));
+            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest1));
             if i==1
                 W = X;
                 B = Y;
@@ -192,12 +193,13 @@ if RunSVMTraining
                 B = [B,Y];
             end
     end
+    fprintf('C before HNM = %f\n',C(CBest1));
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     %--------------------------Hard Negative Mining----------------------------------
     clear performance
     for c = C %Better ==> Stopping condition?
-        fprintf('C= %f\n',c);
+        %fprintf('C= %f\n',c);
         %------------------------------Retrain SVM-----------------------------------
         for i = 1:amountOfScenes
             clear best bestScore positives negatives startNegativesTemp
@@ -322,7 +324,7 @@ if RunSVMTraining
             end
     end
     
-    
+     fprintf('C after HNM = %f\n',C(CBest));
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     
@@ -330,6 +332,7 @@ if RunSVMTraining
     disp('Training finished')
     %--------------------------------------------------------------------------
 else
+    disp('SVM not recalculated')
     load('svm.mat');
 end
 
@@ -338,6 +341,9 @@ end
 
 %---------------------------Test (ROC)---------------------------------------
 disp('Start tests')
+confusionMatrix = zeros(amountOfScenes);
+output = zeros(amountOfScenes,testDBSize);
+target = zeros(amountOfScenes,testDBSize);
 correct = 0;
 Result = zeros(amountOfScenes,3); %columns: 1. # scenes in testDB. 2. # True Positives. 3. #False Positives
 for index = 1:testDBSize
@@ -365,11 +371,18 @@ for index = 1:testDBSize
         Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
         %fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
     end
+    confusionMatrix(best(index),find(strcmp(sceneTypes(testDB(index)),uniqueScenes))) = confusionMatrix(best(index),find(strcmp(sceneTypes(testDB(index)),uniqueScenes)))+1;
+    output(best(index),index) = 1;
+    target(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),index) = 1;
+    
     
     if rem(index,100)==0
             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
     end
 end
+figure;
+imagesc(confusionMatrix)
+%plotconfusion(target,output)
 sumResult = sum(Result);
 fprintf('Out of a testDB of %d ==> %dTP and %dFP \n',sumResult(1),sumResult(2),sumResult(3));
 disp('Tests finished')
