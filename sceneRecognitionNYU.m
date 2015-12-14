@@ -8,14 +8,15 @@ addpath data matconvnet-1.0-beta16
 lastFClayer = 36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunROCTest = 1; %1 = show the ROC-curves, 0 = do not show the ROC-curves
 
 %C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
 C = [0.01,0.1:0.1:1.5];
 %C = [0.001,0.01,0.1:0.2:1.5,2:2:100,100:200:1000,1000,1000000];
 
-ValidationPercentage = 15;
-TestPercentage = 15;
-TrainPercentage = 70;
+ValidationPercentage = 20;
+TestPercentage = 30;
+TrainPercentage = 50;
 ClassTreshold = 20; %below this number of images in class not useful
 
 if ValidationPercentage+TestPercentage+TrainPercentage~=100
@@ -36,6 +37,7 @@ testIndex = 1;
 trainingIndex = 1;
 ValIndex = 1;
 fprintf('Not enough data for: ');
+uselessScene = [];
 for i = 1:amountOfScenes
         thisScene = uniqueScenes(i);
         locationOfScene = find(strcmp(sceneTypes,thisScene));
@@ -53,8 +55,11 @@ for i = 1:amountOfScenes
         end
         if size(locationOfScene,1)<=ClassTreshold
             fprintf('%s, ',thisScene{:});
+            uselessScene = [uselessScene;find(strcmp(thisScene{:},uniqueScenes))];
         end  
 end
+usefulScenes = [1:amountOfScenes];
+usefulScenes(uselessScene) = [];
 fprintf('\n');
 
 % Define the sizes of the DB
@@ -356,10 +361,10 @@ for index = 1:testDBSize
     lastFCTest = squeeze(gather(resTest(lastFClayer+1).x));
     
     for i = 1:amountOfScenes
-        scoresTest(:,i) = W(:,i)'*lastFCTest + B(i) ;
+        scoresTest(index,i) = W(:,i)'*lastFCTest + B(i) ;
     end
     
-    [bestScore(index), best(index)] = max(scoresTest) ;
+    [bestScore(index), best(index)] = max(scoresTest(index,:)) ;
     Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),1) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),1) + 1; %#in testDB
     
     
@@ -385,6 +390,44 @@ imagesc(confusionMatrix)
 %plotconfusion(target,output)
 sumResult = sum(Result);
 fprintf('Out of a testDB of %d ==> %dTP and %dFP \n',sumResult(1),sumResult(2),sumResult(3));
+
+if RunROCTest
+    %figure;
+    %hold on;
+    %xlabel('False positive rate')
+    %ylabel('True positive rate')
+    %title('ROC')
+    
+    
+    
+    for i = usefulScenes
+        %Define Ground-truth
+        labels(:,i) = ones(testDBSize,1);
+        for index = 1:testDBSize
+            if find(strcmp(sceneTypes(testDB(index)),uniqueScenes)) ~= i
+                labels(index,i) = -1; %Negatives
+            end
+        end
+        
+        [TPR(:,i),TNR(:,i)] = vl_roc(labels(:,i),scoresTest(:,i));
+        
+        %plot(1-TNR(:,i),TPR(:,i))
+        
+    end
+    %hold off;
+    
+   
+    figure;
+    index = 1;
+    for i = usefulScenes
+    subplot(3,4,index)
+    vl_roc(labels(:,i),scoresTest(:,i));
+    title(uniqueScenes{i})
+    index = index +1;
+    end
+    
+end
+
 disp('Tests finished')
 %fprintf('Result: %d out of %d are correct\n',correct,testDBSize);
 %--------------------------------------------------------------------------
