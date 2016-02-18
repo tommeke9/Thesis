@@ -5,18 +5,18 @@ addpath data matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
-lastFClayer = 37;%36;
+lastFClayer = 36;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
-RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
-%To delete...
-AmountTestImagesPerClass = 3; %Amount of Validation Images per class
+RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunROCTest = 1; %1 = show the ROC-curves, 0 = do not show the ROC-curves
 
-C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
-%C = [0.01,0.1:0.1:1.5];
+%C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
+C = [0.01,0.1:0.1:1.5];
+%C = [0.001,0.01,0.1:0.2:1.5,2:2:100,100:200:1000,1000,1000000];
 
-ValidationPercentage = 15;
-TestPercentage = 15;
-TrainPercentage = 70;
+ValidationPercentage = 20;
+TestPercentage = 30;
+TrainPercentage = 50;
 ClassTreshold = 20; %below this number of images in class not useful
 
 if ValidationPercentage+TestPercentage+TrainPercentage~=100
@@ -25,7 +25,7 @@ if ValidationPercentage+TestPercentage+TrainPercentage~=100
 end
 
 disp('loading dataset')
-load('nyu_depth_v2_labeled.mat')
+load('nyu_depth_v2_labeled.mat','images','sceneTypes')
 clear accelData rawDepths rawDepthFilenames
 uniqueScenes = unique(sceneTypes);
 [amountOfScenes,~] = size(uniqueScenes);
@@ -37,6 +37,7 @@ testIndex = 1;
 trainingIndex = 1;
 ValIndex = 1;
 fprintf('Not enough data for: ');
+uselessScene = [];
 for i = 1:amountOfScenes
         thisScene = uniqueScenes(i);
         locationOfScene = find(strcmp(sceneTypes,thisScene));
@@ -54,8 +55,11 @@ for i = 1:amountOfScenes
         end
         if size(locationOfScene,1)<=ClassTreshold
             fprintf('%s, ',thisScene{:});
+            uselessScene = [uselessScene;find(strcmp(thisScene{:},uniqueScenes))];
         end  
 end
+usefulScenes = [1:amountOfScenes];
+usefulScenes(uselessScene) = [];
 fprintf('\n');
 
 % Define the sizes of the DB
@@ -91,8 +95,9 @@ if RunCNN
         %res(:,:,:,index) = vl_simplenn(net, im_(:,:,:,index)) ;
         res = vl_simplenn(net, im_(:,:,:,index)) ;
         lastFC(:,index) = squeeze(gather(res(lastFClayer+1).x));
-        if rem(100,index)==0
-            fprintf('%d~%d of %d \n',index-99,index,trainingDBSize);
+        
+        if rem(index,100)==0
+            fprintf('%d ~ %d of %d \n',index-99,index,trainingDBSize);
         end
         %whos('lastFC')
         %disp(num2str(index),'/',num2str(dbSize))
@@ -102,6 +107,7 @@ if RunCNN
     disp('CNN finished')
     %--------------------------------------------------------------------------
 else
+    disp('CNN not recalculated')
     load('lastFC.mat');
 end
 
@@ -165,9 +171,13 @@ if RunSVMTraining
         performance(find(C==c)) = correct/validationDBSize;
     end
     
+%     figure;
+%     scatter(C,performance);
+    
+    
     clear WTemp BTemp c correct best bestScore
     %--------------------------SVM with best param----------------------------------
-    [~,CBest] = max(performance);
+    [~,CBest1] = max(performance);
     for i = 1:amountOfScenes
             thisScene = uniqueScenes(i);
             %disp(thisScene)
@@ -179,7 +189,7 @@ if RunSVMTraining
             SVMLabel(1:size(startNegativesTemp,2)) = -1;
             lastFCOfTraining = lastFC(:,[startNegativesTemp,positives]);
             
-            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest));
+            [X,Y,INFO] = vl_svmtrain(lastFCOfTraining,SVMLabel,C(CBest1));
             if i==1
                 W = X;
                 B = Y;
@@ -188,11 +198,13 @@ if RunSVMTraining
                 B = [B,Y];
             end
     end
+    fprintf('C before HNM = %f\n',C(CBest1));
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     %--------------------------Hard Negative Mining----------------------------------
+    clear performance
     for c = C %Better ==> Stopping condition?
-        fprintf('C= %f\n',c);
+        %fprintf('C= %f\n',c);
         %------------------------------Retrain SVM-----------------------------------
         for i = 1:amountOfScenes
             clear best bestScore positives negatives startNegativesTemp
@@ -247,6 +259,9 @@ if RunSVMTraining
         end
         performance(find(C==c)) = correct/validationDBSize;
     end
+    
+%     figure;
+%     scatter(C,performance);
     
     clear c correct best bestScore
     %--------------------------SVM with best param----------------------------------
@@ -314,22 +329,26 @@ if RunSVMTraining
             end
     end
     
-    
+     fprintf('C after HNM = %f\n',C(CBest));
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     
-    save('svm.mat','W','B');
+    save('svm.mat','W','B','uniqueScenes');
     disp('Training finished')
     %--------------------------------------------------------------------------
 else
+    disp('SVM not recalculated')
     load('svm.mat');
 end
 
-%scatter([0.01,0.1:0.1:1.5,2:1:100,100:100:1000,1000:10000:1000000],performance);
+%scatter(C,performance);
 
 
 %---------------------------Test (ROC)---------------------------------------
 disp('Start tests')
+confusionMatrix = zeros(amountOfScenes);
+output = zeros(amountOfScenes,testDBSize);
+target = zeros(amountOfScenes,testDBSize);
 correct = 0;
 Result = zeros(amountOfScenes,3); %columns: 1. # scenes in testDB. 2. # True Positives. 3. #False Positives
 for index = 1:testDBSize
@@ -342,10 +361,10 @@ for index = 1:testDBSize
     lastFCTest = squeeze(gather(resTest(lastFClayer+1).x));
     
     for i = 1:amountOfScenes
-        scoresTest(:,i) = W(:,i)'*lastFCTest + B(i) ;
+        scoresTest(index,i) = W(:,i)'*lastFCTest + B(i) ;
     end
     
-    [bestScore(index), best(index)] = max(scoresTest) ;
+    [bestScore(index), best(index)] = max(scoresTest(index,:)) ;
     Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),1) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),1) + 1; %#in testDB
     
     
@@ -357,13 +376,58 @@ for index = 1:testDBSize
         Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) = Result(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),3) + 1; %#FP
         %fprintf('Wrong: %s but correct is %s \n',uniqueScenes{best(index)},sceneTypes{testDB(index)});
     end
+    confusionMatrix(best(index),find(strcmp(sceneTypes(testDB(index)),uniqueScenes))) = confusionMatrix(best(index),find(strcmp(sceneTypes(testDB(index)),uniqueScenes)))+1;
+    output(best(index),index) = 1;
+    target(find(strcmp(sceneTypes(testDB(index)),uniqueScenes)),index) = 1;
+    
     
     if rem(index,100)==0
             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
     end
 end
+figure;
+imagesc(confusionMatrix)
+%plotconfusion(target,output)
 sumResult = sum(Result);
 fprintf('Out of a testDB of %d ==> %dTP and %dFP \n',sumResult(1),sumResult(2),sumResult(3));
+
+if RunROCTest
+    %figure;
+    %hold on;
+    %xlabel('False positive rate')
+    %ylabel('True positive rate')
+    %title('ROC')
+    
+    
+    
+    for i = usefulScenes
+        %Define Ground-truth
+        labels(:,i) = ones(testDBSize,1);
+        for index = 1:testDBSize
+            if find(strcmp(sceneTypes(testDB(index)),uniqueScenes)) ~= i
+                labels(index,i) = -1; %Negatives
+            end
+        end
+        
+        [TPR(:,i),TNR(:,i)] = vl_roc(labels(:,i),scoresTest(:,i));
+        
+        %plot(1-TNR(:,i),TPR(:,i))
+        
+    end
+    %hold off;
+    
+   
+    figure;
+    index = 1;
+    for i = usefulScenes
+    subplot(3,4,index)
+    vl_roc(labels(:,i),scoresTest(:,i));
+    title(uniqueScenes{i})
+    index = index +1;
+    end
+    
+end
+
 disp('Tests finished')
 %fprintf('Result: %d out of %d are correct\n',correct,testDBSize);
 %--------------------------------------------------------------------------
