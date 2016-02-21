@@ -105,7 +105,7 @@ if RunCNN
         %whos('lastFC')
         %disp(num2str(index),'/',num2str(dbSize))
     end
-    save('lastFC.mat','lastFC');
+    save('data/lastFC.mat','lastFC');
     clear im_ im_temp
     disp('CNN finished')
     %--------------------------------------------------------------------------
@@ -338,7 +338,7 @@ if RunSVMTraining
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     
-    save('svm.mat','W','B','uniqueScenes');
+    save('data/svm.mat','W','B','uniqueScenes');
     disp('Training finished')
     %--------------------------------------------------------------------------
 else
