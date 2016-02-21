@@ -5,7 +5,7 @@ addpath data matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
-lastFClayer = 33;%36;
+lastFClayer = 31;%36;
 RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 RunROCTest = 1; %1 = show the ROC-curves, 0 = do not show the ROC-curves
@@ -40,7 +40,8 @@ fprintf('Not enough data for: ');
 uselessScene = [];
 for i = 1:amountOfScenes
         thisScene = uniqueScenes(i);
-        locationOfScene = find(strcmp(sceneTypes,thisScene));
+        locationOfScenetemp = find(strcmp(sceneTypes,thisScene));
+        locationOfScene = locationOfScenetemp(randperm(length(locationOfScenetemp)));
         for y = 1:size(locationOfScene,1)
             if y <= round(size(locationOfScene,1)*TrainPercentage/100)
                 trainingDB(trainingIndex) = locationOfScene(y);
@@ -94,7 +95,9 @@ if RunCNN
     for index = 1:trainingDBSize
         %res(:,:,:,index) = vl_simplenn(net, im_(:,:,:,index)) ;
         res = vl_simplenn(net, im_(:,:,:,index)) ;
-        lastFC(:,index) = squeeze(gather(res(lastFClayer+1).x));
+        
+        lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
+        lastFC(:,index) = lastFCtemp(:);
         
         if rem(index,100)==0
             fprintf('%d ~ %d of %d \n',index-99,index,trainingDBSize);
@@ -128,7 +131,9 @@ if RunSVMTraining
         im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
         %Run CNN on ValidationDB
         resVal = vl_simplenn(net, im_(:,:,:,index)) ; 
-        lastFCVal = squeeze(gather(resVal(lastFClayer+1).x));
+        %lastFCVal = squeeze(gather(resVal(lastFClayer+1).x));
+        lastFCValtemp = squeeze(gather(resVal(lastFClayer+1).x));
+        lastFCVal = lastFCValtemp(:);
     end
     
     for c = C %Better ==> Stopping condition?
@@ -358,7 +363,9 @@ for index = 1:testDBSize
     im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
     %Run CNN
     resTest = vl_simplenn(net, im_(:,:,:,index)) ; 
-    lastFCTest = squeeze(gather(resTest(lastFClayer+1).x));
+    %lastFCTest = squeeze(gather(resTest(lastFClayer+1).x));
+    lastFCTesttemp = squeeze(gather(resTest(lastFClayer+1).x));
+    lastFCTest = lastFCTesttemp(:);
     
     for i = 1:amountOfScenes
         scoresTest(index,i) = W(:,i)'*lastFCTest + B(i) ;
@@ -439,7 +446,10 @@ disp('Tests finished')
 % testImage_ = imresize(testImage_, net.normalization.imageSize(1:2)) ;
 % testImage_ = testImage_ - net.normalization.averageImage ;
 % res = vl_simplenn(net, testImage_(:,:,:)) ;
-% lastFCTest = squeeze(gather(res(lastFClayer+1).x));
+% lastFCTest = squeeze(gather(res(lastFClayer+1).x)); to be changed in the
+% next two lines
+%lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
+%       lastFC(:,index) = lastFCtemp(:);
 % 
 % for i = 1:amountOfScenes
 %     scores(:,i) = W(:,i)'*lastFCTest + B(i) ; %changed the * to . 
