@@ -120,3 +120,30 @@ for index = 1:testDBSize
             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
     end
 end
+figure;
+plot(Result)
+hold on
+
+%-------------------------------Spatial Continuity check--------------------------
+d = 5; % Length of evaluation window
+epsilon = 3;
+for index = d:testDBSize
+    P(index) = 1;
+    for u = [index-d+2,index]
+        if abs(Result(u-1)-Result(u)) > epsilon
+            P(index) = 0;
+            break;
+        end
+    end
+end
+
+%TEST: HOLD THE PREVIOUS VALUE IF P=0
+for index = 2:testDBSize
+    if P(index) == 1
+        Resultnew(index) = Result(index);
+    else
+        Resultnew(index) = Resultnew(index-1);
+    end
+end
+plot(Resultnew,'r')
+plot(Resultnew-Result,'g')
