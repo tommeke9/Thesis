@@ -27,10 +27,11 @@ testDBSize = size(testImg,4);
 %Setup MatConvNet
 run matconvnet-1.0-beta16/matlab/vl_setupnn;
 
-% load the pre-trained CNN
-net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
-
 if RunCNN
+    % load the pre-trained CNN
+    net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
+
+
 
     
     % ------------load and preprocess the images---------------------------------
@@ -97,7 +98,7 @@ if RunConf
             confusionMatrix(i,index) = norm(lastFCtest(:,index)-lastFCtraining(:,i));
         end
         if rem(index,100)==0
-                fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
+                fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
         end
     end
     save('data/confMatrix.mat','confusionMatrix');
@@ -108,3 +109,14 @@ end
 
 figure;
 imagesc(confusionMatrix)
+
+%--------------------------------------------------------------------------
+
+%-------------------------------Select Lowest difference--------------------------
+disp('Search lowest difference')
+for index = 1:testDBSize
+    [~,Result(index)] = min(confusionMatrix(:,index));
+    if rem(index,100)==0
+            fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
+    end
+end
