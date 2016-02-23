@@ -113,7 +113,7 @@ imagesc(confusionMatrix)
 %--------------------------------------------------------------------------
 q=1;
 figure;
-for d = 1:6
+for epsilon = 1:6
 %-------------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
 for index = 1:testDBSize
@@ -129,8 +129,8 @@ plot(Result,'g')
 hold on
 
 %-------------------------------Spatial Continuity check--------------------------
-%d = 5; % Length of evaluation window
-epsilon = 3;
+d = 2; % Length of evaluation window
+%epsilon = 3;
 for index = d:testDBSize
     P(index) = 1;
     for u = index-d+2:index
@@ -152,6 +152,6 @@ end
 plot(Resultnew,'r')
 %plot(Resultnew-Result,'g')
 hold off
-title(num2str(d))
+title(['epsilon = ' num2str(epsilon)])
 q=q+1;
 end
