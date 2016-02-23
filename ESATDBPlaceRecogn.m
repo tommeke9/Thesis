@@ -1,4 +1,5 @@
 clear all
+close all
 clc
 
 addpath data matconvnet-1.0-beta16 data/ESAT-DB
@@ -111,9 +112,7 @@ figure;
 imagesc(confusionMatrix)
 
 %--------------------------------------------------------------------------
-q=1;
-figure;
-for epsilon = 1:6
+
 %-------------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
 for index = 1:testDBSize
@@ -122,15 +121,13 @@ for index = 1:testDBSize
 %             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
 %     end
 end
-%figure;
-subplot(3,2,q)
-
+figure;
 plot(Result,'g')
 hold on
 
 %-------------------------------Spatial Continuity check--------------------------
 d = 2; % Length of evaluation window
-%epsilon = 3;
+epsilon = 3;
 for index = d:testDBSize
     P(index) = 1;
     for u = index-d+2:index
@@ -141,7 +138,8 @@ for index = d:testDBSize
     end
 end
 
-%TEST: HOLD THE PREVIOUS VALUE IF P=0
+%HOLD THE PREVIOUS VALUE IF P=0
+Resultnew(1) = Result(1);
 for index = 2:testDBSize
     if P(index) == 1
         Resultnew(index) = Result(index);
@@ -152,6 +150,4 @@ end
 plot(Resultnew,'r')
 %plot(Resultnew-Result,'g')
 hold off
-title(['epsilon = ' num2str(epsilon)])
-q=q+1;
-end
+title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
