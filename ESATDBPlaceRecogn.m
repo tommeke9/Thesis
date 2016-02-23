@@ -111,26 +111,30 @@ figure;
 imagesc(confusionMatrix)
 
 %--------------------------------------------------------------------------
-
+q=1;
+figure;
+for d = 1:6
 %-------------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
 for index = 1:testDBSize
-    [~,Result(index)] = min(confusionMatrix(:,index));
-    if rem(index,100)==0
-            fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
-    end
+    [ResultValue(index),Result(index)] = min(confusionMatrix(:,index));
+%     if rem(index,100)==0
+%             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
+%     end
 end
-figure;
-plot(Result)
+%figure;
+subplot(3,2,q)
+
+plot(Result,'g')
 hold on
 
 %-------------------------------Spatial Continuity check--------------------------
-d = 5; % Length of evaluation window
+%d = 5; % Length of evaluation window
 epsilon = 3;
 for index = d:testDBSize
     P(index) = 1;
-    for u = [index-d+2,index]
-        if abs(Result(u-1)-Result(u)) > epsilon
+    for u = index-d+2:index
+        if abs(ResultValue(u-1)-ResultValue(u)) > epsilon
             P(index) = 0;
             break;
         end
@@ -146,4 +150,8 @@ for index = 2:testDBSize
     end
 end
 plot(Resultnew,'r')
-plot(Resultnew-Result,'g')
+%plot(Resultnew-Result,'g')
+hold off
+title(num2str(d))
+q=q+1;
+end
