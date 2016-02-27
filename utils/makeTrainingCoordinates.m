@@ -80,6 +80,4 @@ for trajectNumber = 1:size(FixedPhotos,1)-1
     end
 end
 
-
-
-
+save('ImageCoordinates.mat','ImageCoordinates');

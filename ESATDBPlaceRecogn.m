@@ -9,6 +9,7 @@ addpath data matconvnet-1.0-beta16 data/ESAT-DB
 lastFClayer = 31;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+PlotRoute = 1; %1 = plot the route on a floorplan
 
 disp('loading ESAT DB')
 T = load('test.mat');
@@ -113,6 +114,14 @@ imagesc(confusionMatrix)
 
 %--------------------------------------------------------------------------
 
+%-------------------------------Edge Detection--------------------------
+%Leave the images out of the training if the amount of edges is below a
+%specific treshold
+
+
+
+
+
 %-------------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
 for index = 1:testDBSize
@@ -156,19 +165,32 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 
 
 %-------------------------------Sequential Filter--------------------------
-clear u
-u = 1;
-d=50;
-for index = d:testDBSize
-    X = ones(d,2);
-    X(:,2) = index-d+1:index;
-    Y = reshape(Resultnew(index-d+1:index),[d,1]);
-    BetaAlpha(:,u) = X\Y; 
-    u = u+1;
+% clear u
+% u = 1;
+% d=50;
+% for index = d:testDBSize
+%     X = ones(d,2);
+%     X(:,2) = index-d+1:index;
+%     Y = reshape(Resultnew(index-d+1:index),[d,1]);
+%     BetaAlpha(:,u) = X\Y; 
+%     u = u+1;
+% end
+
+%------------------------------Show traject on map--------------------------
+if PlotRoute
+    load('ImageCoordinates.mat');
+    figure;
+    [X,map] = imread('floorplan.gif');
+    if ~isempty(map)
+        Im = ind2rgb(X,map);
+    end
+    imshow(Im)
+    hold on;
+    for i=1:testDBSize
+        plot(ImageCoordinates(Resultnew(1,i),1),ImageCoordinates(Resultnew(1,i),2),'or','MarkerSize',5,'MarkerFaceColor','r')
+        %aviObj = addframe(aviObj, getframe(gcf));
+        pause(.02);
+    end
 end
-
-
-
-
 
 
