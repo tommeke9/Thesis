@@ -62,7 +62,23 @@ ImageCoordinates(11950,:) = [332,477];
 ImageCoordinates(12290,:) = [332,543];
 ImageCoordinates(12681,:) = [313,543];
 
+%-------------------Interpolate--------------------------------------------
+FixedPhotos = find(ImageCoordinates(:,1));
 
+for trajectNumber = 1:size(FixedPhotos,1)-1
+        PhotoBefore = FixedPhotos(trajectNumber);
+        PhotoAfter = FixedPhotos(trajectNumber+1);
+        
+        PhotoLocBefore = ImageCoordinates(PhotoBefore,:);
+        PhotoLocAfter = ImageCoordinates(PhotoAfter,:);
+        AmountToInterpolate = PhotoAfter - PhotoBefore;
+        i = 1;
+    for index = PhotoBefore+1:PhotoAfter-1 %Every photo to be interpolated
+        ImageCoordinatestemp =  PhotoLocBefore + i * (PhotoLocAfter-PhotoLocBefore)/AmountToInterpolate;
+        ImageCoordinates(index,:) = round(ImageCoordinatestemp);
+        i = i+1;
+    end
+end
 
 
 
