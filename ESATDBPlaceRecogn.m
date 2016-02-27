@@ -151,3 +151,24 @@ plot(Resultnew,'r')
 %plot(Resultnew-Result,'g')
 hold off
 title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
+
+
+
+
+%-------------------------------Sequential Filter--------------------------
+clear u
+u = 1;
+d=50;
+for index = d:testDBSize
+    X = ones(d,2);
+    X(:,2) = index-d+1:index;
+    Y = reshape(Resultnew(index-d+1:index),[d,1]);
+    BetaAlpha(:,u) = X\Y; 
+    u = u+1;
+end
+
+
+
+
+
+
