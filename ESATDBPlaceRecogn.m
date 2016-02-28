@@ -7,8 +7,9 @@ addpath data matconvnet-1.0-beta16 data/ESAT-DB
 %Run setup before! to compile matconvnet
 %Variables:
 lastFClayer = 31;
-RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
-RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+edgeThreshold = 0.05;
+RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
+RunConf = 1; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 1; %1 = plot the route on a floorplan
 
 disp('loading ESAT DB')
@@ -20,14 +21,38 @@ trainingImg = T.img;
 clear T
 disp('DB loaded')
 
-
-
 % Define the sizes of the DB
 trainingDBSize = size(trainingImg,4);
 testDBSize = size(testImg,4);
 
 %Setup MatConvNet
 run matconvnet-1.0-beta16/matlab/vl_setupnn;
+
+%--------------------------Edge  Detection---------------------------------
+%Leave the images out of the training & test if the amount of edges is below a
+%specific treshold
+toDelete = [];
+for index = 1:trainingDBSize
+    [~,threshOut] = edge(rgb2gray(trainingImg(:,:,:,index)));
+    if threshOut < edgeThreshold
+        toDelete = [toDelete,index];
+    end
+end
+trainingImg(:,:,:,toDelete) = [];
+
+toDelete = [];
+for index = 1:testDBSize
+    [~,threshOut] = edge(rgb2gray(testImg(:,:,:,index)));
+    if threshOut < edgeThreshold
+        toDelete = [toDelete,index];
+    end
+end
+testImg(:,:,:,toDelete) = [];
+%--------------------------------------------------------------------------
+% Define the sizes of the new DB
+trainingDBSize = size(trainingImg,4);
+testDBSize = size(testImg,4);
+
 
 if RunCNN
     % load the pre-trained CNN
@@ -113,14 +138,6 @@ figure;
 imagesc(confusionMatrix)
 
 %--------------------------------------------------------------------------
-
-%-------------------------------Edge Detection--------------------------
-%Leave the images out of the training if the amount of edges is below a
-%specific treshold
-
-
-
-
 
 %-------------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
