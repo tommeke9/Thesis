@@ -8,8 +8,8 @@ addpath data matconvnet-1.0-beta16 data/ESAT-DB
 %Variables:
 lastFClayer = 31;
 edgeThreshold = 0.05;
-RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
-RunConf = 1; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
+RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 1; %1 = plot the route on a floorplan
 
 disp('loading ESAT DB')
@@ -194,20 +194,42 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 % end
 
 %------------------------------Show traject on map--------------------------
+load('ImageCoordinates.mat');
+testLocations = [ImageCoordinates(Resultnew(1,:),1),ImageCoordinates(Resultnew(1,:),2)];
 if PlotRoute
-    load('ImageCoordinates.mat');
-    figure;
+    figure('units','normalized','outerposition',[0 0 1 1]);
     [X,map] = imread('floorplan.gif');
     if ~isempty(map)
         Im = ind2rgb(X,map);
     end
-    imshow(Im)
-    hold on;
+    %imshow(Im)
+    %hold on;
+    v = VideoWriter('newfile.avi');
+    open(v)
+    tic
     for i=1:testDBSize
-        plot(ImageCoordinates(Resultnew(1,i),1),ImageCoordinates(Resultnew(1,i),2),'or','MarkerSize',5,'MarkerFaceColor','r')
-        %aviObj = addframe(aviObj, getframe(gcf));
-        pause(.02);
+        subplot(1,3,1)
+        imshow(Im)
+        hold on;
+        plot(testLocations(i,1),testLocations(i,2),'or','MarkerSize',5,'MarkerFaceColor','r')
+        text(500,570,['current test-photo: ' num2str(i)],'Color','r')
+        hold off;
+        
+        subplot(1,3,2)
+        imshow(testImg(:,:,:,i));
+        title(['Test image: ',num2str(i)])
+        
+        subplot(1,3,3)
+        imshow(trainingImg(:,:,:,Resultnew(i)));
+        title(['Training image: ',num2str(Resultnew(i))])
+        
+        
+        frame = getframe(gcf);
+        writeVideo(v,frame)
+        %pause(.02);
     end
+    toc
+    close(v);
 end
 
 
