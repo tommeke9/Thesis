@@ -1,7 +1,7 @@
-clear all
-close all
-clc
-
+% clear all
+% close all
+% clc
+function [ ImageCoordinates ] = makeTrainingCoordinates(  )
 ImageCoordinates = zeros(12681,2);
 
 %Room 91.56
@@ -17,7 +17,7 @@ ImageCoordinates(2300,:) = [490,308];
 ImageCoordinates(2830,:) = [490,388];
 ImageCoordinates(3420,:) = [580,400];
 ImageCoordinates(3585,:) = [574,416];
-ImageCoordinates(3830,:) = [349,399];
+ImageCoordinates(3830,:) = [549,399];
 ImageCoordinates(4200,:) = [523,422];
 ImageCoordinates(4490,:) = [519,388];
 ImageCoordinates(4623,:) = [490,388];
@@ -80,4 +80,5 @@ for trajectNumber = 1:size(FixedPhotos,1)-1
     end
 end
 
-save('ImageCoordinates.mat','ImageCoordinates');
+end
+%save('ImageCoordinates.mat','ImageCoordinates');

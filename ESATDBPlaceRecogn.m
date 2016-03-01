@@ -2,12 +2,14 @@ clear all
 close all
 clc
 
+ImageCoordinates = makeTrainingCoordinates();
 addpath data matconvnet-1.0-beta16 data/ESAT-DB
 
 %Run setup before! to compile matconvnet
 %Variables:
 lastFClayer = 31;
-edgeThreshold = 0.05;
+edgeThresholdTraining = 0.07;
+edgeThresholdTest = 0.05;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 1; %1 = plot the route on a floorplan
@@ -26,28 +28,33 @@ trainingDBSize = size(trainingImg,4);
 testDBSize = size(testImg,4);
 
 %Setup MatConvNet
+delete(gcp('nocreate'))
 run matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 %--------------------------Edge  Detection---------------------------------
 %Leave the images out of the training & test if the amount of edges is below a
 %specific treshold
-toDelete = [];
-for index = 1:trainingDBSize
-    [~,threshOut] = edge(rgb2gray(trainingImg(:,:,:,index)));
-    if threshOut < edgeThreshold
-        toDelete = [toDelete,index];
-    end
-end
-trainingImg(:,:,:,toDelete) = [];
 
 toDelete = [];
-for index = 1:testDBSize
-    [~,threshOut] = edge(rgb2gray(testImg(:,:,:,index)));
-    if threshOut < edgeThreshold
+parfor index = 1:trainingDBSize
+    [~,threshOut] = edge(rgb2gray(trainingImg(:,:,:,index)));
+    if threshOut < edgeThresholdTraining
         toDelete = [toDelete,index];
     end
 end
-testImg(:,:,:,toDelete) = [];
+trainingImg(:,:,:,toDelete(:)) = [];
+ImageCoordinates(toDelete(:),:) = [];
+
+
+toDelete = [];
+parfor index = 1:testDBSize
+    [~,threshOut] = edge(rgb2gray(testImg(:,:,:,index)));
+    if threshOut < edgeThresholdTest
+        toDelete = [toDelete,index];
+    end
+end
+testImg(:,:,:,toDelete(:)) = [];
+
 %--------------------------------------------------------------------------
 % Define the sizes of the new DB
 trainingDBSize = size(trainingImg,4);
@@ -63,13 +70,13 @@ if RunCNN
     
     % ------------load and preprocess the images---------------------------------
     disp('Normalization')
-    for index = 1:trainingDBSize
+    parfor index = 1:trainingDBSize
         im_temp = single(trainingImg(:,:,:,index)) ; % note: 0-255 range
         im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
         trainingImgNorm(:,:,:,index) = im_temp - net.normalization.averageImage ;
     end
     clear im_temp index
-    for index = 1:testDBSize
+    parfor index = 1:testDBSize
         im_temp = single(testImg(:,:,:,index)) ; % note: 0-255 range
         im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
         testImgNorm(:,:,:,index) = im_temp - net.normalization.averageImage ;
@@ -81,6 +88,7 @@ if RunCNN
 
     % ---------------------------------Run CNN---------------------------------
     disp('Run CNN')
+    delete(gcp('nocreate'))
     for index = 1:trainingDBSize
         res = vl_simplenn(net, trainingImgNorm(:,:,:,index)) ;
         
@@ -102,7 +110,7 @@ if RunCNN
         lastFCtest(:,index) = lastFCtemp(:);
         
         if rem(index,100)==0
-            fprintf('test %d ~ %d of %d \n',index-99,index,trainingDBSize);
+            fprintf('test %d ~ %d of %d \n',index-99,index,testDBSize);
         end
     end
     save('data/lastFCesatDB.mat','lastFCtest');
@@ -120,7 +128,7 @@ end
 if RunConf
     disp('Start tests')
     confusionMatrix = zeros(trainingDBSize);
-    for index = 1:testDBSize
+    parfor index = 1:testDBSize
         for i = 1:trainingDBSize
             confusionMatrix(i,index) = norm(lastFCtest(:,index)-lastFCtraining(:,i));
         end
@@ -141,7 +149,7 @@ imagesc(confusionMatrix)
 
 %-------------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
-for index = 1:testDBSize
+parfor index = 1:testDBSize
     [ResultValue(index),Result(index)] = min(confusionMatrix(:,index));
 %     if rem(index,100)==0
 %             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
@@ -194,7 +202,6 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 % end
 
 %------------------------------Show traject on map--------------------------
-load('ImageCoordinates.mat');
 testLocations = [ImageCoordinates(Resultnew(1,:),1),ImageCoordinates(Resultnew(1,:),2)];
 if PlotRoute
     figure('units','normalized','outerposition',[0 0 1 1]);
