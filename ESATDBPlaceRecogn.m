@@ -211,7 +211,7 @@ if PlotRoute
     end
     %imshow(Im)
     %hold on;
-    v = VideoWriter('newfile.avi');
+    v = VideoWriter('data/newfile.avi');
     open(v)
     tic
     for i=1:testDBSize
