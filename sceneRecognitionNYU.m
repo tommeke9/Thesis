@@ -5,7 +5,7 @@ addpath data matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
-lastFClayer = 31;%36;
+lastFClayer = 31;
 RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 RunROCTest = 1; %1 = show the ROC-curves, 0 = do not show the ROC-curves
