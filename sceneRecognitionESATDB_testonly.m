@@ -10,8 +10,12 @@ disp('loading ESAT DB')
 T = load('test.mat');
 testImg = T.img;
 clear T
+
+
+load('newDB.mat','sceneTypes')
+uniqueScenes = unique(sceneTypes);
+clear sceneTypes
 disp('DB loaded')
-load('scenes.mat') %To be deleted...
 testDBSize = size(testImg,4);
 
 if calcScenes
@@ -21,7 +25,7 @@ if calcScenes
     % load the pre-trained CNN
     net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
 
-    load('svm.mat');
+    load('ESATsvm.mat');
     lastFClayer = 31;
     for index = 1:testDBSize
             %normalize
