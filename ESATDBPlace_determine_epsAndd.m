@@ -156,10 +156,10 @@ imagesc(confusionMatrix)
 
 
  MSEindex = 1;
- for d = 1:6
+ for d = 2:6
      q=1;
  figure;
-for epsilon = 1:6
+for epsilon = 1:10
 
 %-------------------------------Select Lowest difference--------------------------
 %disp('Search lowest difference')
@@ -169,8 +169,8 @@ parfor index = 1:testDBSize
 %             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
 %     end
 end
-%figure;
-subplot(3,2,q)
+figure;
+subplot(5,2,q)
 plot(Result,'g')
 hold on
 
@@ -197,7 +197,6 @@ for index = 2:testDBSize
     end
 end
 plot(Resultnew,'r')
-%plot(Resultnew-Result,'g')
 plot(Resultnew-Result,'b')
 hold off
 mse(MSEindex,1) = d;
