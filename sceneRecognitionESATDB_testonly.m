@@ -52,14 +52,18 @@ else
 end
 
 figure('units','normalized','outerposition',[0 0 1 1]);
-for i = 1:10:testDBSize
+for i = 1:testDBSize
     subplot(2,2,2)
     imshow(testImg(:,:,:,i))
-    if bestScore(i) > 0.3
-    title([uniqueScenes(best(i)) ' with score ' bestScore(i)])
+    if bestScore(i) > 1
+    title([uniqueScenes(best(i)) ' with score ' bestScore(i)],'interpreter','none','color',[0,0,0])
+    elseif bestScore(i) > 0.3
+    title([uniqueScenes(best(i)) ' with score ' bestScore(i)],'interpreter','none','color',[1-bestScore(i),1-bestScore(i),1-bestScore(i)])
+%     else
+%     title([uniqueScenes(best(i)) ' with score ' bestScore(i)],'interpreter','none','color',[1-bestScore(i),1-bestScore(i),1-bestScore(i)])
     end
     drawnow
 end
 figure;
-plot(1:testDBSize,best);
+plot(best(bestScore>1));
 set(gca, 'YTickLabel',uniqueScenes, 'YTick',1:numel(uniqueScenes))

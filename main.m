@@ -1,30 +1,40 @@
 clear all
+close all
 clc
-%TO BE USED TO CALL scneRecognition.m AND objectRecognition.m
-% 
-% addpath data matconvnet-1.0-beta16
-% 
-% %Run setup before! to compile matconvnet
-% 
-% %Setup MatConvNet
-% run matconvnet-1.0-beta16/matlab/vl_setupnn;
-% 
-% % load the pre-trained CNN
-% net = load('imagenet-vgg-verydeep-16.mat') ;
-% %net = load('imagenet-googlenet-dag.mat') ;
-% 
-% % load and preprocess an image
-% im = imread('data/office.jpg') ;
-% im_ = single(im) ; % note: 0-255 range
-% im_ = imresize(im_, net.normalization.imageSize(1:2)) ;
-% im_ = im_ - net.normalization.averageImage ;
-% 
-% % run the CNN
-% res = vl_simplenn(net, im_) ;
-% 
-% % show the classification result
-% scores = squeeze(gather(res(end).x)) ;
-% [bestScore, best] = max(scores) ;
-% figure(1) ; clf ; imagesc(im) ;
-% title(sprintf('%s (%d), score %.3f',...
-% net.classes.description{best}, best, bestScore)) ;
+
+%Run scene recognition & localisation on the map for one image.
+%not finished, this is just a copy of sceneRecognitionESATDB_testonly.m
+
+%Setup MatConvNet
+run matconvnet-1.0-beta16/matlab/vl_setupnn;
+
+% load the pre-trained CNN
+net = load('imagenet-vgg-verydeep-16.mat') ;
+load('svm.mat')
+lastFClayer = 31;
+
+load('newDB.mat','sceneTypes')
+uniqueScenes = unique(sceneTypes);
+clear sceneTypes
+
+
+
+%For each image
+testImage = imread(imgetfile);
+
+%normalize image
+testImage_ = single(testImage) ; % note: 0-255 range
+testImage_ = imresize(testImage_, net.normalization.imageSize(1:2)) ;
+testImage_ = testImage_ - net.normalization.averageImage ;
+
+res = vl_simplenn(net, testImage_(:,:,:)) ;
+lastFCTesttemp = squeeze(gather(res(lastFClayer+1).x));
+lastFCTest = lastFCTesttemp(:);
+
+for i = 1:size(uniqueScenes,1)
+    scores(:,i) = W(:,i)'*lastFCTest + B(i) ;
+end
+
+[bestScore, best] = max(scores) ;
+figure(1) ; clf ; imagesc(testImage) ;
+title(sprintf('%s (%d), score %.3f', uniqueScenes{best}, best, bestScore)) ;

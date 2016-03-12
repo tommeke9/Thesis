@@ -201,6 +201,12 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 %     u = u+1;
 % end
 
+
+%-------------------------------Scene Recognition--------------------------
+%Done in sceneRecognitionESATDB_testonly.m ==> implement here?
+%Takes very long...
+
+
 %------------------------------Show traject on map--------------------------
 testLocations = [ImageCoordinates(Resultnew(1,:),1),ImageCoordinates(Resultnew(1,:),2)];
 if PlotRoute
