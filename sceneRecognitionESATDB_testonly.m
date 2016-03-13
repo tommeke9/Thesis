@@ -65,5 +65,5 @@ for i = 1:testDBSize
     drawnow
 end
 figure;
-plot(best(bestScore>1));
+plot(best(bestScore>0.3));
 set(gca, 'YTickLabel',uniqueScenes, 'YTick',1:numel(uniqueScenes))
