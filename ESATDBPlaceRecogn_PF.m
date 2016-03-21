@@ -14,10 +14,13 @@ RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 0; %1 = plot the route on a floorplan
 
+%Variables for PF
 FeatureDetectNoiseStDev = 200; %Standard devidation on calculated difference of features
-SpeedStDev = 1; %Standard devidation on calculated speed
+SpeedStDev = 10; %Standard devidation on calculated speed
 Speed = 1; %speed of walking
-
+RandPercentage = 0.001; %Percentage of the particles to be randomized (1 = 100%)
+N = 1000; %Amount of particles
+PlotPF = 1; %1 = plot the PF for debugging & testing
 
 disp('loading ESAT DB')
 T = load('test.mat');
@@ -208,30 +211,57 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 
 %-------------------------------Particle Filter--------------------------
 %Initialize weights
-w = 1/trainingDBSize*ones(trainingDBSize,1);
+w = 1/N*ones(N,1);
 
 %Initialize particles
-particles = 1:trainingDBSize;
+particles = round(rand(N,1)*(trainingDBSize-1)+1);
 
-%figure;
+figure;
 for index = 1:testDBSize
-    %Select the current feature distance
-    featDist = ResultValue(index);
     
     %Create weights using the normal distribution pdf & normalize
-    w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles,index)  -featDist).^2/(2*FeatureDetectNoiseStDev^2)));
+    w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
     w = w/sum(w);
-    stem(particles,w*10000);
-    drawnow
     
+    if PlotPF
+        %plot the particles
+        subplot(3,1,1);
+        stem(particles(:),w*10000);
+        axis([0 trainingDBSize 0 inf])
+        title('Particle weights');
+        xlabel('Training Image');
+        ylabel('Weight');
+    end
     %Resample the particles = leave out the unlikely particles
+    u = rand(N,1);
+    wc = cumsum(w);
+    [~,ind1] = sort([u;wc]);
+    ind=find(ind1<=N)-(0:N-1)';
+    particles=particles(ind);
+    w=ones(N,1)./N;
     
+    if PlotPF
+        subplot(3,1,2);
+        imshow(testImg(:,:,:,index));
+        title('Test Image');
+
+        subplot(3,1,3);
+        hist(particles);
+        axis([0 trainingDBSize 0 inf])
+        title('Particle histogram');
+        xlabel('Training Image');
+        ylabel('Amount of particles');
+
+        drawnow
+    end
     
-    %motion model!!
+    %motion model
+    particles = round(particles + Speed + SpeedStDev*randn(size(particles)));
+    particles(particles<=0)=1;
+    particles(particles>=trainingDBSize)=trainingDBSize;
     
-    
-    
-    w = 1/trainingDBSize*ones(trainingDBSize,1);
+    %Randomize a specific percentage to avoid locked particles
+    particles(round(rand(N*RandPercentage,1)*(N-1)+1)) = round(rand(N*RandPercentage,1)*(trainingDBSize-1)+1);
 end
 
 

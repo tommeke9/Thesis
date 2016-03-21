@@ -40,7 +40,7 @@ for index = 1:testDBSize
         delete(findall(gcf,'Tag','arrow'))
         imshow(testImg(:,:,:,index))
         hold on
-        %plot(flow,'DecimationFactor',[5 5],'ScaleFactor',10)
+        plot(flow,'DecimationFactor',[5 5],'ScaleFactor',10)
         
         %Plot the unused frame.
         rectangle('Position',[widthImHalf-widthPixelsToIgnore heightImHalf-heightPixelsToIgnore widthPixelsToIgnore*2 heightPixelsToIgnore*2])
