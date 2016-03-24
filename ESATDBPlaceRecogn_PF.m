@@ -12,15 +12,17 @@ edgeThresholdTraining = 0.07;
 edgeThresholdTest = 0.05;
 RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
-PlotRoute = 0; %1 = plot the route on a floorplan
+PlotRoute = 1; %1 = plot the route on a floorplan
 
 %Variables for PF
-FeatureDetectNoiseStDev = 200; %Standard devidation on calculated difference of features
-SpeedStDev = 10; %Standard devidation on calculated speed
+FeatureDetectNoiseStDev = 200; %Standard deviation on calculated difference of features
+SpeedStDev = 10; %Standard deviation on calculated speed
 Speed = 1; %speed of walking
 RandPercentage = 0.001; %Percentage of the particles to be randomized (1 = 100%)
 N = 1000; %Amount of particles
-PlotPF = 1; %1 = plot the PF for debugging & testing
+PlotPF = 0; %1 = plot the PF for debugging & testing
+
+locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
 disp('loading ESAT DB')
 T = load('test.mat');
@@ -216,7 +218,9 @@ w = 1/N*ones(N,1);
 %Initialize particles
 particles = round(rand(N,1)*(trainingDBSize-1)+1);
 
-figure;
+if PlotPF
+    figure;
+end
 for index = 1:testDBSize
     
     %Create weights using the normal distribution pdf & normalize
@@ -246,13 +250,12 @@ for index = 1:testDBSize
         title('Test Image');
 
         subplot(3,1,3);
-        hist(particles);
+        histogram(particles);
+        hold on
         axis([0 trainingDBSize 0 inf])
         title('Particle histogram');
         xlabel('Training Image');
         ylabel('Amount of particles');
-
-        drawnow
     end
     
     %motion model
@@ -262,8 +265,24 @@ for index = 1:testDBSize
     
     %Randomize a specific percentage to avoid locked particles
     particles(round(rand(N*RandPercentage,1)*(N-1)+1)) = round(rand(N*RandPercentage,1)*(trainingDBSize-1)+1);
+    
+    %Keep result of the PF
+    ResultPF(index) = mode(particles);
+    
+    if PlotPF
+        line([mode(particles) mode(particles)], [0 1000], 'color','r');
+        hold off
+        
+        drawnow
+    end
+    storedParticles(:,index) = particles;
 end
-
+figure;
+plot(Result,'g')
+hold on
+plot(ResultPF,'r')
+hold off
+title('Green = initial, Red = after Particle Filtering')
 
 
 
@@ -273,7 +292,15 @@ end
 
 
 %------------------------------Show traject on map--------------------------
-testLocations = [ImageCoordinates(Resultnew(1,:),1),ImageCoordinates(Resultnew(1,:),2)];
+plotHeight = 1;
+if locationMode == 1
+    testLocations = [ImageCoordinates(Result(1,:),1),ImageCoordinates(Result(1,:),2)];
+elseif locationMode == 2
+    testLocations = [ImageCoordinates(Resultnew(1,:),1),ImageCoordinates(Resultnew(1,:),2)];
+elseif locationMode == 3
+    testLocations = [ImageCoordinates(ResultPF(1,:),1),ImageCoordinates(ResultPF(1,:),2)];
+    plotHeight = 2;
+end
 if PlotRoute
     figure('units','normalized','outerposition',[0 0 1 1]);
     [X,map] = imread('floorplan.gif');
@@ -286,21 +313,45 @@ if PlotRoute
     open(v)
     tic
     for i=1:testDBSize
-        subplot(1,3,1)
+        subplot(plotHeight,3,1)
         imshow(Im)
         hold on;
         plot(testLocations(i,1),testLocations(i,2),'or','MarkerSize',5,'MarkerFaceColor','r')
         text(500,570,['current test-photo: ' num2str(i)],'Color','r')
         hold off;
         
-        subplot(1,3,2)
+        subplot(plotHeight,3,2)
         imshow(testImg(:,:,:,i));
         title(['Test image: ',num2str(i)])
         
-        subplot(1,3,3)
-        imshow(trainingImg(:,:,:,Resultnew(i)));
-        title(['Training image: ',num2str(Resultnew(i))])
         
+        
+        
+        if locationMode == 1
+            subplot(plotHeight,3,3)
+            imshow(trainingImg(:,:,:,Result(i)));
+            title(['(Original method) Training image: ',num2str(Result(i))])
+        elseif locationMode == 2
+            subplot(plotHeight,3,3)
+            imshow(trainingImg(:,:,:,Resultnew(i)));
+            title(['(Sequential Filter method) Training image: ',num2str(Resultnew(i))])
+        elseif locationMode == 3
+            subplot(plotHeight,3,3)
+            imshow(trainingImg(:,:,:,ResultPF(i)));
+            title(['(PF method) Training image: ',num2str(ResultPF(i))])
+            
+            subplot(plotHeight,3,4:6)
+            %histogram(storedParticles(:,i));
+            scatter(storedParticles(:,i),ones(size(storedParticles(:,i),1),1));
+            hold on
+            line([mode(storedParticles(:,i)) mode(storedParticles(:,i))], [0.5 1.5], 'color','r','linewidth',2);
+            hold off
+            axis([0 trainingDBSize 0 inf])
+            %title('Particles histogram')
+            title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev),'; FeatureDetectNoiseStDev = ',num2str(FeatureDetectNoiseStDev)]);
+            xlabel('Training Image');
+            %ylabel('Amount of particles');
+        end
         
         frame = getframe(gcf);
         writeVideo(v,frame)
