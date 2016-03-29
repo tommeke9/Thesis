@@ -18,8 +18,8 @@ PlotRoute = 0; %1 = plot the route on a floorplan
 FeatureDetectNoiseStDev = 200; %Standard deviation on calculated difference of features
 SpeedStDev = 10; %Standard deviation on calculated speed
 Speed = 1; %speed of walking
-RandPercentage = 0.001; %Percentage of the particles to be randomized (1 = 100%)
-N = 1000; %Amount of particles
+RandPercentage = 0;%.001; %Percentage of the particles to be randomized (1 = 100%)
+%N = 1000; %Amount of particles
 PlotPF = 0; %1 = plot the PF for debugging & testing
 
 locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
@@ -211,6 +211,13 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 %     u = u+1;
 % end
 
+for SpeedStDev = 5
+%for FeatureDetectNoiseStDev = [50,200,1000,1500]
+%for RandPercentage = [0.001,0.01,0.1]
+for Speed = 1
+figure;
+plotNumber=1;
+for N = [1000,2500,10000]%[100,1000,2500,5000,7500,10000]
 %-------------------------------Particle Filter--------------------------
 %Initialize weights
 w = 1/N*ones(N,1);
@@ -242,7 +249,7 @@ for index = 1:testDBSize
     [~,ind1] = sort([u;wc]);
     ind=find(ind1<=N)-(0:N-1)';
     particles=particles(ind);
-    w=ones(N,1)./N;
+    %w=ones(N,1)./N;
     
     if PlotPF
         subplot(3,1,2);
@@ -264,7 +271,7 @@ for index = 1:testDBSize
     particles(particles>=trainingDBSize)=trainingDBSize;
     
     %Randomize a specific percentage to avoid locked particles
-    particles(round(rand(N*RandPercentage,1)*(N-1)+1)) = round(rand(N*RandPercentage,1)*(trainingDBSize-1)+1);
+    particles(round(rand(ceil(N*RandPercentage),1)*(N-1)+1)) = round(rand(ceil(N*RandPercentage),1)*(trainingDBSize-1)+1);
     
     %Keep result of the PF
     ResultPF(index) = mode(particles);
@@ -275,16 +282,20 @@ for index = 1:testDBSize
         
         drawnow
     end
-    storedParticles(:,index) = particles;
+    %storedParticles(:,index) = particles;
 end
-figure;
+subplot(2,3,plotNumber)
 plot(Result,'g')
 hold on
 plot(ResultPF,'r')
 hold off
-title('Green = initial, Red = after Particle Filtering')
-
-
+title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]});
+xlabel('Test Image');
+ylabel('Training Image');
+plotNumber = plotNumber + 1;
+end
+end
+end
 
 %-------------------------------Scene Recognition--------------------------
 %Done in sceneRecognitionESATDB_testonly.m ==> implement here?
