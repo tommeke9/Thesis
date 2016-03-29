@@ -16,10 +16,10 @@ PlotRoute = 0; %1 = plot the route on a floorplan
 
 %Variables for PF
 FeatureDetectNoiseStDev = 200; %Standard deviation on calculated difference of features
-SpeedStDev = 10; %Standard deviation on calculated speed
+SpeedStDev = 2; %Standard deviation on calculated speed
 Speed = 1; %speed of walking
-RandPercentage = 0.001; %Percentage of the particles to be randomized (1 = 100%)
-N = 1000; %Amount of particles
+RandPercentage = 0.1; %Percentage of the particles to be randomized (1 = 100%)
+N = 2500; %Amount of particles
 PlotPF = 0; %1 = plot the PF for debugging & testing
 
 locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
@@ -212,9 +212,6 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 % end
 
 %-------------------------------Particle Filter--------------------------
-%Initialize weights
-w = 1/N*ones(N,1);
-
 %Initialize particles
 particles = round(rand(N,1)*(trainingDBSize-1)+1);
 
@@ -224,32 +221,47 @@ end
 for index = 1:testDBSize
     
     %Create weights using the normal distribution pdf & normalize
+    w=ones(N,1)./N;
     w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
     w = w/sum(w);
     
     if PlotPF
         %plot the particles
-        subplot(3,1,1);
+        subplot(3,3,1:3);
         stem(particles(:),w*10000);
         axis([0 trainingDBSize 0 inf])
         title('Particle weights');
         xlabel('Training Image');
-        ylabel('Weight');
+        ylabel('Weight (*10000)');
     end
+    
     %Resample the particles = leave out the unlikely particles
     u = rand(N,1);
     wc = cumsum(w);
     [~,ind1] = sort([u;wc]);
     ind=find(ind1<=N)-(0:N-1)';
     particles=particles(ind);
-    w=ones(N,1)./N;
+    
     
     if PlotPF
-        subplot(3,1,2);
+        subplot(3,3,4);
         imshow(testImg(:,:,:,index));
-        title('Test Image');
+        title(['Test Image ',num2str(index)]);
 
-        subplot(3,1,3);
+        subplot(3,3,5);
+        imshow(trainingImg(:,:,:,mode(particles)));
+        title(['Training Image ',num2str(mode(particles))]);
+        
+        %probability(index) = sum(abs(w - mean(w)).^2)/N;%sum(w > mean(w));
+        
+%         subplot(3,3,6);
+%         plot(probability);
+%         axis([0 testDBSize 0 inf])
+%         title('Pobability of correctness');
+%         xlabel('testImage');
+%         ylabel('Prob');
+        
+        subplot(3,3,7:9);
         histogram(particles);
         hold on
         axis([0 trainingDBSize 0 inf])
@@ -264,7 +276,7 @@ for index = 1:testDBSize
     particles(particles>=trainingDBSize)=trainingDBSize;
     
     %Randomize a specific percentage to avoid locked particles
-    particles(round(rand(N*RandPercentage,1)*(N-1)+1)) = round(rand(N*RandPercentage,1)*(trainingDBSize-1)+1);
+    particles(round(rand(ceil(N*RandPercentage),1)*(N-1)+1)) = round(rand(ceil(N*RandPercentage),1)*(trainingDBSize-1)+1);
     
     %Keep result of the PF
     ResultPF(index) = mode(particles);
@@ -277,12 +289,13 @@ for index = 1:testDBSize
     end
     storedParticles(:,index) = particles;
 end
-figure;
 plot(Result,'g')
 hold on
 plot(ResultPF,'r')
 hold off
-title('Green = initial, Red = after Particle Filtering')
+title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]});
+xlabel('Test Image');
+ylabel('Training Image');
 
 
 
