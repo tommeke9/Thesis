@@ -19,7 +19,7 @@ calcScenesTrainingDB = 0; %1 if recalc of the scenes for the trainingDB is neces
 calcScenesTestDB = 0; %1 if recalc of the scenes for the testDB is necessary.
 RunConfScene = 0; %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
 
-ConfMatCNN = 0.5; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
+ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
 
 %Variables for PF
 FeatureDetectNoiseStDev = 200; %Standard deviation on calculated difference of features
@@ -230,6 +230,9 @@ ylabel('Test Image')
 %--------------------------------------------------------------------------
 
 
+
+
+
 %------------------------Combine Confusion Matrices------------------------
 disp('Start combining the confusion matrices')
 
@@ -237,10 +240,10 @@ disp('Start combining the confusion matrices')
 %confusionMatrix = confusionMatrixCNNFeat .* confusionMatrixSceneRecogn;
 confusionMatrix = ConfMatCNN .* (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat)) + (1-ConfMatCNN) .* (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn));
 figure;
+imagesc(confusionMatrix)
 title('Combined Confusion Matrix')
 xlabel('Training Image')
 ylabel('Test Image')
-imagesc(confusionMatrix)
 
 %--------------------------------------------------------------------------
 
