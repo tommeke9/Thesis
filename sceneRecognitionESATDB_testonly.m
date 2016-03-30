@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-calcScenes = 0; %1 if recalc of the scenes for the testDB is necessary.
+calcScenes = 1; %1 if recalc of the scenes for the testDB is necessary.
 
 
 

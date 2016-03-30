@@ -14,6 +14,13 @@ RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
 RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 0; %1 = plot the route on a floorplan
 
+%Scene Recognition
+calcScenesTrainingDB = 0; %1 if recalc of the scenes for the trainingDB is necessary.
+calcScenesTestDB = 0; %1 if recalc of the scenes for the testDB is necessary.
+RunConfScene = 0; %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
+
+ConfMatCNN = 0.5; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
+
 %Variables for PF
 FeatureDetectNoiseStDev = 200; %Standard deviation on calculated difference of features
 SpeedStDev = 2; %Standard deviation on calculated speed
@@ -23,6 +30,9 @@ N = 2500; %Amount of particles
 PlotPF = 0; %1 = plot the PF for debugging & testing
 
 locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+
+% load the pre-trained CNN
+net = load('imagenet-vgg-verydeep-16.mat') ;
 
 disp('loading ESAT DB')
 T = load('test.mat');
@@ -72,8 +82,6 @@ testDBSize = size(testImg,4);
 
 
 if RunCNN
-    % load the pre-trained CNN
-    net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
 
 
 
@@ -109,7 +117,7 @@ if RunCNN
             fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize);
         end
     end
-    save('data/lastFCesatDB.mat','lastFCtraining');
+    save('data/lastFCesatDB.mat','lastFCtraining','-append');
     clear lastFCtemp index res
     
     %Same for testDB
@@ -123,7 +131,7 @@ if RunCNN
             fprintf('test %d ~ %d of %d \n',index-99,index,testDBSize);
         end
     end
-    save('data/lastFCesatDB.mat','lastFCtest');
+    save('data/lastFCesatDB.mat','lastFCtest','-append');
     clear lastFCtemp res
     disp('CNN finished')
     %--------------------------------------------------------------------------
@@ -133,31 +141,110 @@ else
 end
 
 
+%-------------------------------Scene Recognition--------------------------
+%GOAL: Save for every test image the scores for every scenetype. (Thus
+%a score for every scene in the testDB) This will be added to the
+%ConfusionMatrix and used for the localisation.
 
-%---------------------------Test (Confusion)---------------------------------------
+disp('Load scenes')
+load('newDB.mat','sceneTypes')
+uniqueScenes = unique(sceneTypes);
+clear sceneTypes
+disp('Scenes loaded')
+
+%Retrain or Load the TrainingDB
+if calcScenesTrainingDB
+    disp('Recalculate Scenes for the trainingDB')
+    scoresTraining = Train_scenes_ESATDB(trainingImg,net,lastFClayer);
+    save('data/ScenesEsatDB.mat','scoresTraining','-append');
+    disp('Scenes saved for the trainingDB')
+else
+    disp('Scenes for the TrainingDB not recalculated')
+    load('data/ScenesEsatDB.mat','scoresTraining');
+end
+
+%Retrain or Load the TestDB
+if calcScenesTestDB
+    disp('recalculate scenes for the testDB')
+    scoresTest = Train_scenes_ESATDB(testImg,net,lastFClayer);
+    save('data/ScenesEsatDB.mat','scoresTest','-append');
+    disp('Scenes saved for the testDB')
+else 
+    disp('Scenes for the testDB not recalculated')
+    load('data/ScenesEsatDB.mat','scoresTest');
+end
+
+%Make a temporary confusionMatrix for the scene-recognition
+if RunConfScene
+    disp('Start to compare scenes')
+    confusionMatrixSceneRecogn = zeros(trainingDBSize);
+    for index = 1:testDBSize
+        for i = 1:trainingDBSize
+            confusionMatrixSceneRecogn(i,index) = norm(scoresTest(index,:)-scoresTraining(i,:));
+        end
+        if rem(index,100)==0
+                fprintf('Scene Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
+        end
+    end
+    save('data/confMatrix.mat','confusionMatrixSceneRecogn','-append');
+    disp('ConfusionMatrix of Scenes saved')
+else
+    disp('ConfusionMatrix of Scenes not recalculated')
+    load('confMatrix.mat','confusionMatrixSceneRecogn');
+end
+
+figure;
+imagesc(confusionMatrixSceneRecogn)
+title('Confusion Matrix Scene Recognition')
+xlabel('Training Image')
+ylabel('Test Image')
+
+%--------------------------------------------------------------------------
+
+
+
+%------------------------Confusion Matrix CNN Features---------------------
 if RunConf
     disp('Start tests')
-    confusionMatrix = zeros(trainingDBSize);
+    confusionMatrixCNNFeat = zeros(trainingDBSize);
     parfor index = 1:testDBSize
         for i = 1:trainingDBSize
-            confusionMatrix(i,index) = norm(lastFCtest(:,index)-lastFCtraining(:,i));
+            confusionMatrixCNNFeat(i,index) = norm(lastFCtest(:,index)-lastFCtraining(:,i));
         end
         if rem(index,100)==0
                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
         end
     end
-    save('data/confMatrix.mat','confusionMatrix');
+    save('data/confMatrix.mat','confusionMatrixCNNFeat','-append');
 else
     disp('ConfusionMatrix not recalculated')
     load('confMatrix.mat');
 end
 
 figure;
+imagesc(confusionMatrixCNNFeat)
+title('Confusion Matrix CNN features')
+xlabel('Training Image')
+ylabel('Test Image')
+
+%--------------------------------------------------------------------------
+
+
+%------------------------Combine Confusion Matrices------------------------
+disp('Start combining the confusion matrices')
+
+%confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + (1-ConfMatCNN) .* confusionMatrixSceneRecogn;
+%confusionMatrix = confusionMatrixCNNFeat .* confusionMatrixSceneRecogn;
+confusionMatrix = ConfMatCNN .* (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat)) + (1-ConfMatCNN) .* (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn));
+figure;
+title('Combined Confusion Matrix')
+xlabel('Training Image')
+ylabel('Test Image')
 imagesc(confusionMatrix)
 
 %--------------------------------------------------------------------------
 
-%-------------------------------Select Lowest difference--------------------------
+%------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
 parfor index = 1:testDBSize
     [ResultValue(index),Result(index)] = min(confusionMatrix(:,index));
@@ -169,7 +256,7 @@ figure;
 plot(Result,'g')
 hold on
 
-%-------------------------------Spatial Continuity check--------------------------
+%------------------------Spatial Continuity check--------------------------
 d = 2; % Length of evaluation window
 epsilon = 3;
 for index = d:testDBSize
@@ -297,11 +384,6 @@ title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; 
 xlabel('Test Image');
 ylabel('Training Image');
 
-
-
-%-------------------------------Scene Recognition--------------------------
-%Done in sceneRecognitionESATDB_testonly.m ==> implement here?
-%Takes very long...
 
 
 %------------------------------Show traject on map--------------------------
