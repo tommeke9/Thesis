@@ -3,7 +3,7 @@ close all
 clc
 
 ImageCoordinates = makeTrainingCoordinates();
-addpath data matconvnet-1.0-beta16 data/ESAT-DB
+addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 
 %Run setup before! to compile matconvnet
 %Variables:
@@ -39,7 +39,7 @@ testDBSize = size(testImg,4);
 
 %Setup MatConvNet
 delete(gcp('nocreate'))
-run matconvnet-1.0-beta16/matlab/vl_setupnn;
+run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 %--------------------------Edge  Detection---------------------------------
 %Leave the images out of the training & test if the amount of edges is below a

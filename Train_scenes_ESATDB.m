@@ -7,7 +7,7 @@ function [ scores ] = Train_scenes_ESATDB( images,net,lastFClayer )
 DBSize = size(images,4);
 
 %Setup MatConvNet
-run matconvnet-1.0-beta16/matlab/vl_setupnn;
+run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 load('ESATsvm.mat');
 

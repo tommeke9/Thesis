@@ -4,7 +4,7 @@ clc
 
 %Scene recognition based on a new DB placed in 'data/newDB'. Only
 %recognizes offices, corridors, conference rooms.
-addpath data data/newDB matconvnet-1.0-beta16
+addpath data data/newDB deps/matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
@@ -71,7 +71,7 @@ testDBSize = size(testDB,2);
 validationDBSize = size(validationDB,2);
 
 %Setup MatConvNet
-run matconvnet-1.0-beta16/matlab/vl_setupnn;
+run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
 net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2

@@ -3,7 +3,7 @@ close all
 clc
 
 ImageCoordinates = makeTrainingCoordinates();
-addpath data matconvnet-1.0-beta16 data/ESAT-DB
+addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 
 %Run setup before! to compile matconvnet
 %Variables:
@@ -49,7 +49,7 @@ testDBSize = size(testImg,4);
 
 %Setup MatConvNet
 delete(gcp('nocreate'))
-run matconvnet-1.0-beta16/matlab/vl_setupnn;
+run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 %--------------------------Edge  Detection---------------------------------
 %Leave the images out of the training & test if the amount of edges is below a
@@ -167,11 +167,16 @@ end
 if calcScenesTestDB
     disp('recalculate scenes for the testDB')
     scoresTest = Train_scenes_ESATDB(testImg,net,lastFClayer);
-    save('data/ScenesEsatDB.mat','scoresTest','-append');
+    
+    %Save the best scene with the score
+    for index = 1:testDBSize
+        [bestScoreScene(index), bestScene(index)] = max(scoresTest(index,:)) ;
+    end
+    save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene','-append');
     disp('Scenes saved for the testDB')
 else 
     disp('Scenes for the testDB not recalculated')
-    load('data/ScenesEsatDB.mat','scoresTest');
+    load('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene');
 end
 
 %Make a temporary confusionMatrix for the scene-recognition
@@ -285,7 +290,8 @@ plot(Resultnew,'r')
 %plot(Resultnew-Result,'g')
 hold off
 title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
-
+xlabel('test images')
+ylabel('training images')
 
 
 
@@ -300,6 +306,23 @@ title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' 
 %     BetaAlpha(:,u) = X\Y; 
 %     u = u+1;
 % end
+
+
+
+
+
+
+%To delete/fix
+FeatureDetectNoiseStDev = max(range(confusionMatrix))/2;
+
+
+
+
+
+
+
+
+
 
 %-------------------------------Particle Filter--------------------------
 %Initialize particles
@@ -417,6 +440,11 @@ if PlotRoute
         plot(testLocations(i,1),testLocations(i,2),'or','MarkerSize',5,'MarkerFaceColor','r')
         text(500,570,['current test-photo: ' num2str(i)],'Color','r')
         hold off;
+        if bestScoreScene(i) > 1
+            title(['Looks like a ',uniqueScenes(bestScene(i)),' with score ',bestScoreScene(i)],'interpreter','none','color',[0,0,0])
+        elseif bestScoreScene(i) > 0.3
+            title(['Looks like a ',uniqueScenes(bestScene(i)),' with score ',bestScoreScene(i)],'interpreter','none','color',[1-bestScoreScene(i),1-bestScoreScene(i),1-bestScoreScene(i)])
+        end
         
         subplot(plotHeight,3,2)
         imshow(testImg(:,:,:,i));

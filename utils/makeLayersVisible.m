@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-addpath data matconvnet-1.0-beta16 utils
+addpath data deps/matconvnet-1.0-beta16 utils
 disp('loading cnn')
 load('imagenet-vgg-verydeep-16.mat')
 disp('cnn loaded')

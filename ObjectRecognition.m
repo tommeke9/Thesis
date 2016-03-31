@@ -1,7 +1,7 @@
 clear all
 clc
 
-addpath data matconvnet-1.0-beta16
+addpath data deps/matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
@@ -16,7 +16,7 @@ disp('dataset loaded')
 [height,width,channels,dbSize] = size(images);
 
 %Setup MatConvNet
-run matconvnet-1.0-beta16/matlab/vl_setupnn;
+run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
 net = load('imagenet-vgg-verydeep-16.mat');
