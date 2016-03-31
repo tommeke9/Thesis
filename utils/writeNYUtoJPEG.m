@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-addpath data matconvnet-1.0-beta16 utils data/NYUV2
+addpath data deps/matconvnet-1.0-beta16 utils data/NYUV2
 disp('loading dataset')
 load('nyu_depth_v2_labeled.mat')
 disp('converting images')
