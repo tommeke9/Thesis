@@ -2,40 +2,55 @@ clear all
 close all
 clc
 
-ImageCoordinates = makeTrainingCoordinates();
+TrainingCoordinates = makeTrainingCoordinates();
 addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 
 %Run setup before! to compile matconvnet
-%Variables:
+%------------------------VARIABLES-----------------------------------------
+PlotOn = 0; %Plot Debugging figures
+
+testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
+
 lastFClayer = 31;
-edgeThresholdTraining = 0.07;
-edgeThresholdTest = 0.05;
-RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
-RunConf = 0; %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
-PlotRoute = 0; %1 = plot the route on a floorplan
+edgeThresholdTraining = 0;%0.07;
+edgeThresholdTest = 0;%0.05;
+RunCNN = 1;     %1 = run the CNN, 0 = Load the CNN
+RunConf = 1;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+PlotRoute = 0;  %1 = plot the route on a floorplan
 
 %Scene Recognition
-calcScenesTrainingDB = 0; %1 if recalc of the scenes for the trainingDB is necessary.
-calcScenesTestDB = 0; %1 if recalc of the scenes for the testDB is necessary.
-RunConfScene = 0; %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
+calcScenesTrainingDB = 1;   %1 if recalc of the scenes for the trainingDB is necessary.
+calcScenesTestDB = 1;       %1 if recalc of the scenes for the testDB is necessary.
+RunConfScene = 1;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
 
 ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
 
-%Variables for PF
-FeatureDetectNoiseStDev = 200; %Standard deviation on calculated difference of features
-SpeedStDev = 2; %Standard deviation on calculated speed
-Speed = 1; %speed of walking
-RandPercentage = 0.1; %Percentage of the particles to be randomized (1 = 100%)
-N = 2500; %Amount of particles
-PlotPF = 0; %1 = plot the PF for debugging & testing
+%Particle Filter
+FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
+SpeedStDev = 2;                 %Standard deviation on calculated speed
+Speed = 1;                      %speed of walking
+RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
+N = 2500;                       %Amount of particles
+PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
 locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+
+widthRoom68 = 3; %used to calculate the error
+
+%--------------------------------------------------------------------------
 
 % load the pre-trained CNN
 net = load('imagenet-vgg-verydeep-16.mat') ;
 
 disp('loading ESAT DB')
-T = load('test.mat');
+switch testDB
+    case 1
+        T = load('test.mat');
+        TestCoordinates = makeTestCoordinates();
+    case 2
+        T = load('test2.mat');
+        TestCoordinates = makeTest2Coordinates();
+end
 testImg = T.img;
 clear T
 T = load('training.mat');
@@ -54,31 +69,36 @@ run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 %--------------------------Edge  Detection---------------------------------
 %Leave the images out of the training & test if the amount of edges is below a
 %specific treshold
+%Parfor gives speedimprovement for trainingDB: 17sec -> 10sec
 
+%uselessTrainingImg = zeros(trainingDBSize,1);
 toDelete = [];
 parfor index = 1:trainingDBSize
     [~,threshOut] = edge(rgb2gray(trainingImg(:,:,:,index)));
     if threshOut < edgeThresholdTraining
         toDelete = [toDelete,index];
+        %uselessTrainingImg(index) = 1;
     end
 end
 trainingImg(:,:,:,toDelete(:)) = [];
-ImageCoordinates(toDelete(:),:) = [];
+TrainingCoordinates(toDelete(:),:) = [];
 
-
+%uselessTestImg = zeros(testDBSize,1);
 toDelete = [];
 parfor index = 1:testDBSize
     [~,threshOut] = edge(rgb2gray(testImg(:,:,:,index)));
     if threshOut < edgeThresholdTest
         toDelete = [toDelete,index];
+        %uselessTestImg(index) = 1;
     end
 end
 testImg(:,:,:,toDelete(:)) = [];
+TestCoordinates(toDelete(:),:) = [];
 
-%--------------------------------------------------------------------------
 % Define the sizes of the new DB
 trainingDBSize = size(trainingImg,4);
 testDBSize = size(testImg,4);
+%--------------------------------------------------------------------------
 
 
 if RunCNN
@@ -198,12 +218,13 @@ else
     load('confMatrix.mat','confusionMatrixSceneRecogn');
 end
 
-figure;
-imagesc(confusionMatrixSceneRecogn)
-title('Confusion Matrix Scene Recognition')
-xlabel('Training Image')
-ylabel('Test Image')
-
+if PlotOn
+    figure;
+    imagesc(confusionMatrixSceneRecogn)
+    title('Confusion Matrix Scene Recognition')
+    xlabel('Training Image')
+    ylabel('Test Image')
+end
 %--------------------------------------------------------------------------
 
 
@@ -226,12 +247,13 @@ else
     load('confMatrix.mat');
 end
 
-figure;
-imagesc(confusionMatrixCNNFeat)
-title('Confusion Matrix CNN features')
-xlabel('Training Image')
-ylabel('Test Image')
-
+if PlotOn
+    figure;
+    imagesc(confusionMatrixCNNFeat)
+    title('Confusion Matrix CNN features')
+    xlabel('Training Image')
+    ylabel('Test Image')
+end
 %--------------------------------------------------------------------------
 
 
@@ -244,12 +266,13 @@ disp('Start combining the confusion matrices')
 %confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + (1-ConfMatCNN) .* confusionMatrixSceneRecogn;
 %confusionMatrix = confusionMatrixCNNFeat .* confusionMatrixSceneRecogn;
 confusionMatrix = ConfMatCNN .* (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat)) + (1-ConfMatCNN) .* (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn));
-figure;
-imagesc(confusionMatrix)
-title('Combined Confusion Matrix')
-xlabel('Training Image')
-ylabel('Test Image')
-
+if PlotOn
+    figure;
+    imagesc(confusionMatrix)
+    title('Combined Confusion Matrix')
+    xlabel('Training Image')
+    ylabel('Test Image')
+end
 %--------------------------------------------------------------------------
 
 %------------------------Select Lowest difference--------------------------
@@ -260,10 +283,11 @@ parfor index = 1:testDBSize
 %             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
 %     end
 end
-figure;
-plot(Result,'g')
-hold on
-
+if PlotOn
+    figure;
+    plot(Result,'g')
+    hold on
+end
 %------------------------Spatial Continuity check--------------------------
 d = 2; % Length of evaluation window
 epsilon = 3;
@@ -286,13 +310,14 @@ for index = 2:testDBSize
         Resultnew(index) = Resultnew(index-1);
     end
 end
-plot(Resultnew,'r')
-%plot(Resultnew-Result,'g')
-hold off
-title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
-xlabel('test images')
-ylabel('training images')
-
+if PlotOn
+    plot(Resultnew,'r')
+    %plot(Resultnew-Result,'g')
+    hold off
+    title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
+    xlabel('test images')
+    ylabel('training images')
+end
 
 
 %-------------------------------Sequential Filter--------------------------
@@ -402,24 +427,67 @@ for index = 1:testDBSize
     end
     storedParticles(:,index) = particles;
 end
-plot(Result,'g')
-hold on
-plot(ResultPF,'r')
-hold off
-title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]});
-xlabel('Test Image');
-ylabel('Training Image');
+if PlotOn
+    figure;
+    plot(Result,'g')
+    hold on
+    plot(ResultPF,'r')
+    hold off
+    title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]});
+    xlabel('Test Image');
+    ylabel('Training Image');
+end
+%--------------------------------------------------------------------------
 
+
+%-----------------------------Calculate the error--------------------------
+%Find the calculated test image coordinates
+switch locationMode
+    case 1
+        % No post-processing
+        testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
+        description = 'no post-processing';
+    case 2
+        % Spatial Continuity filter
+        testLocations = [TrainingCoordinates(Resultnew(1,:),1),TrainingCoordinates(Resultnew(1,:),2)];
+        description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
+    case 3
+        % Particle Filter
+        testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
+        description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)];
+end
+
+% Calc the amount of meter per pixel on the floorplan
+MeterPixel = widthRoom68/(506-480);
+
+%testCoordinates = Groundtruth
+error = TestCoordinates - testLocations;
+errorDistance = sqrt(error(:,1).^2 + error(:,2).^2).*MeterPixel;
+if PlotOn
+    figure;
+    plot(errorDistance)
+    title('Error');
+    xlabel('Test Image');
+    ylabel('Error [meter]');
+end
+errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
+errorDistMean = sum(errorDistance)/size(errorDistance,1);
+errorDistMax = max(errorDistance);
+fprintf('--------------------------RESULT---------------------------------\n');
+fprintf('--INPUT:\n');
+fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
+fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
+fprintf('The ConfMatCNN is %.4f\n',ConfMatCNN);
+fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
+fprintf('\n--OUTPUT:\n');
+fprintf('The Mean Squared Error of the distance is %.2f meter^2\nWith a mean of the error of %.2f meter, and a maximal error of %.2f meter.\n',errorDistMSE,errorDistMean,errorDistMax);
+fprintf('-----------------------------------------------------------------\n');
+%--------------------------------------------------------------------------
 
 
 %------------------------------Show traject on map--------------------------
 plotHeight = 1;
-if locationMode == 1
-    testLocations = [ImageCoordinates(Result(1,:),1),ImageCoordinates(Result(1,:),2)];
-elseif locationMode == 2
-    testLocations = [ImageCoordinates(Resultnew(1,:),1),ImageCoordinates(Resultnew(1,:),2)];
-elseif locationMode == 3
-    testLocations = [ImageCoordinates(ResultPF(1,:),1),ImageCoordinates(ResultPF(1,:),2)];
+if locationMode == 3
     plotHeight = 2;
 end
 if PlotRoute
