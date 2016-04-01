@@ -12,16 +12,19 @@ PlotOn = 0; %Plot Debugging figures
 testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 31;
+
+%WARNING: If change of edgeThreshold ==> Put RunConfScene AND RunConf to 1
 edgeThresholdTraining = 0;%0.07;
 edgeThresholdTest = 0;%0.05;
-RunCNN = 1;     %1 = run the CNN, 0 = Load the CNN
-RunConf = 1;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+
+RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
+RunConf = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 0;  %1 = plot the route on a floorplan
 
 %Scene Recognition
-calcScenesTrainingDB = 1;   %1 if recalc of the scenes for the trainingDB is necessary.
-calcScenesTestDB = 1;       %1 if recalc of the scenes for the testDB is necessary.
-RunConfScene = 1;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
+calcScenesTrainingDB = 0;   %1 if recalc of the scenes for the trainingDB is necessary.
+calcScenesTestDB = 0;       %1 if recalc of the scenes for the testDB is necessary.
+RunConfScene = 0;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
 
 ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
 
@@ -51,16 +54,16 @@ switch testDB
         T = load('test2.mat');
         TestCoordinates = makeTest2Coordinates();
 end
-testImg = T.img;
+testImg_original = T.img;
 clear T
 T = load('training.mat');
-trainingImg = T.img;
+trainingImg_original = T.img;
 clear T
 disp('DB loaded')
 
 % Define the sizes of the DB
-trainingDBSize = size(trainingImg,4);
-testDBSize = size(testImg,4);
+trainingDBSize_original = size(trainingImg_original,4);
+testDBSize_original = size(testImg_original,4);
 
 %Setup MatConvNet
 delete(gcp('nocreate'))
@@ -71,29 +74,32 @@ run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 %specific treshold
 %Parfor gives speedimprovement for trainingDB: 17sec -> 10sec
 
+trainingImg = trainingImg_original;
+testImg = testImg_original;
+
 %uselessTrainingImg = zeros(trainingDBSize,1);
-toDelete = [];
-parfor index = 1:trainingDBSize
+TrainingToDelete = [];
+parfor index = 1:trainingDBSize_original
     [~,threshOut] = edge(rgb2gray(trainingImg(:,:,:,index)));
     if threshOut < edgeThresholdTraining
-        toDelete = [toDelete,index];
+        TrainingToDelete = [TrainingToDelete,index];
         %uselessTrainingImg(index) = 1;
     end
 end
-trainingImg(:,:,:,toDelete(:)) = [];
-TrainingCoordinates(toDelete(:),:) = [];
+trainingImg(:,:,:,TrainingToDelete(:)) = [];
+TrainingCoordinates(TrainingToDelete(:),:) = [];
 
 %uselessTestImg = zeros(testDBSize,1);
-toDelete = [];
-parfor index = 1:testDBSize
+TestToDelete = [];
+parfor index = 1:testDBSize_original
     [~,threshOut] = edge(rgb2gray(testImg(:,:,:,index)));
     if threshOut < edgeThresholdTest
-        toDelete = [toDelete,index];
+        TestToDelete = [TestToDelete,index];
         %uselessTestImg(index) = 1;
     end
 end
-testImg(:,:,:,toDelete(:)) = [];
-TestCoordinates(toDelete(:),:) = [];
+testImg(:,:,:,TestToDelete(:)) = [];
+TestCoordinates(TestToDelete(:),:) = [];
 
 % Define the sizes of the new DB
 trainingDBSize = size(trainingImg,4);
@@ -108,14 +114,14 @@ if RunCNN
     
     % ------------load and preprocess the images---------------------------------
     disp('Normalization')
-    parfor index = 1:trainingDBSize
-        im_temp = single(trainingImg(:,:,:,index)) ; % note: 0-255 range
+    parfor index = 1:trainingDBSize_original
+        im_temp = single(trainingImg_original(:,:,:,index)) ; % note: 0-255 range
         im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
         trainingImgNorm(:,:,:,index) = im_temp - net.normalization.averageImage ;
     end
     clear im_temp index
-    parfor index = 1:testDBSize
-        im_temp = single(testImg(:,:,:,index)) ; % note: 0-255 range
+    parfor index = 1:testDBSize_original
+        im_temp = single(testImg_original(:,:,:,index)) ; % note: 0-255 range
         im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
         testImgNorm(:,:,:,index) = im_temp - net.normalization.averageImage ;
     end
@@ -127,28 +133,28 @@ if RunCNN
     % ---------------------------------Run CNN---------------------------------
     disp('Run CNN')
     delete(gcp('nocreate'))
-    for index = 1:trainingDBSize
+    for index = 1:trainingDBSize_original
         res = vl_simplenn(net, trainingImgNorm(:,:,:,index)) ;
         
         lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
         lastFCtraining(:,index) = lastFCtemp(:);
         
         if rem(index,100)==0
-            fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize);
+            fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize_original);
         end
     end
     save('data/lastFCesatDB.mat','lastFCtraining','-append');
     clear lastFCtemp index res
     
     %Same for testDB
-    for index = 1:testDBSize
+    for index = 1:testDBSize_original
         res = vl_simplenn(net, testImgNorm(:,:,:,index)) ;
         
         lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
         lastFCtest(:,index) = lastFCtemp(:);
         
         if rem(index,100)==0
-            fprintf('test %d ~ %d of %d \n',index-99,index,testDBSize);
+            fprintf('test %d ~ %d of %d \n',index-99,index,testDBSize_original);
         end
     end
     save('data/lastFCesatDB.mat','lastFCtest','-append');
@@ -160,6 +166,8 @@ else
     load('lastFCesatDB.mat');
 end
 
+lastFCtraining(:,TrainingToDelete(:)) = [];
+lastFCtest(:,TestToDelete(:)) = [];
 
 %-------------------------------Scene Recognition--------------------------
 %GOAL: Save for every test image the scores for every scenetype. (Thus
@@ -175,21 +183,22 @@ disp('Scenes loaded')
 %Retrain or Load the TrainingDB
 if calcScenesTrainingDB
     disp('Recalculate Scenes for the trainingDB')
-    scoresTraining = Train_scenes_ESATDB(trainingImg,net,lastFClayer);
+    scoresTraining = Train_scenes_ESATDB(trainingImg_original,net,lastFClayer);
     save('data/ScenesEsatDB.mat','scoresTraining','-append');
     disp('Scenes saved for the trainingDB')
 else
     disp('Scenes for the TrainingDB not recalculated')
     load('data/ScenesEsatDB.mat','scoresTraining');
 end
+scoresTraining(TrainingToDelete(:),:) = [];
 
 %Retrain or Load the TestDB
 if calcScenesTestDB
     disp('recalculate scenes for the testDB')
-    scoresTest = Train_scenes_ESATDB(testImg,net,lastFClayer);
+    scoresTest = Train_scenes_ESATDB(testImg_original,net,lastFClayer);
     
     %Save the best scene with the score
-    for index = 1:testDBSize
+    for index = 1:testDBSize_original
         [bestScoreScene(index), bestScene(index)] = max(scoresTest(index,:)) ;
     end
     save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene','-append');
@@ -198,6 +207,9 @@ else
     disp('Scenes for the testDB not recalculated')
     load('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene');
 end
+scoresTest(TestToDelete(:),:) = [];
+bestScoreScene(TestToDelete(:)) = [];
+bestScene(TestToDelete(:)) = [];
 
 %Make a temporary confusionMatrix for the scene-recognition
 if RunConfScene
