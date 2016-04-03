@@ -9,22 +9,24 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %------------------------VARIABLES-----------------------------------------
 PlotOn = 0; %Plot Debugging figures
 
+%WARNING: If change of testDB ==>
+%RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
 testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 31;
 
 %WARNING: If change of edgeThreshold ==> Put RunConfScene AND RunConf to 1
-edgeThresholdTraining = 0;%0.07;
+edgeThresholdTraining = 0.07;%0.07;
 edgeThresholdTest = 0;%0.05;
 
 RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
-RunConf = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+RunConf = 1;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 0;  %1 = plot the route on a floorplan
 
 %Scene Recognition
 calcScenesTrainingDB = 0;   %1 if recalc of the scenes for the trainingDB is necessary.
 calcScenesTestDB = 0;       %1 if recalc of the scenes for the testDB is necessary.
-RunConfScene = 0;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
+RunConfScene = 1;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
 
 ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
 
@@ -166,6 +168,9 @@ else
     load('lastFCesatDB.mat');
 end
 
+lastFCtraining_original = lastFCtraining;
+lastFCtest_original = lastFCtest;
+
 lastFCtraining(:,TrainingToDelete(:)) = [];
 lastFCtest(:,TestToDelete(:)) = [];
 
@@ -174,16 +179,20 @@ lastFCtest(:,TestToDelete(:)) = [];
 %a score for every scene in the testDB) This will be added to the
 %ConfusionMatrix and used for the localisation.
 
-disp('Load scenes')
-load('newDB.mat','sceneTypes')
-uniqueScenes = unique(sceneTypes);
-clear sceneTypes
-disp('Scenes loaded')
+disp('Load scenes & SVM')
+load('ESATsvm.mat');
+disp('Scenes & SVM loaded')
 
 %Retrain or Load the TrainingDB
 if calcScenesTrainingDB
     disp('Recalculate Scenes for the trainingDB')
-    scoresTraining = Train_scenes_ESATDB(trainingImg_original,net,lastFClayer);
+    
+    for index = 1:trainingDBSize_original
+        for i = 1:size(uniqueScenes,1)
+            scoresTraining(index,i) = W(:,i)'*lastFCtraining_original(:,index) + B(i) ;
+        end
+    end
+    
     save('data/ScenesEsatDB.mat','scoresTraining','-append');
     disp('Scenes saved for the trainingDB')
 else
@@ -195,12 +204,16 @@ scoresTraining(TrainingToDelete(:),:) = [];
 %Retrain or Load the TestDB
 if calcScenesTestDB
     disp('recalculate scenes for the testDB')
-    scoresTest = Train_scenes_ESATDB(testImg_original,net,lastFClayer);
     
-    %Save the best scene with the score
     for index = 1:testDBSize_original
+        for i = 1:size(uniqueScenes,1)
+            scoresTest(index,i) = W(:,i)'*lastFCtest_original(:,index) + B(i) ;
+        end
+        
+        %Save the best scene with the score
         [bestScoreScene(index), bestScene(index)] = max(scoresTest(index,:)) ;
     end
+    
     save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene','-append');
     disp('Scenes saved for the testDB')
 else 
@@ -215,13 +228,13 @@ bestScene(TestToDelete(:)) = [];
 if RunConfScene
     disp('Start to compare scenes')
     confusionMatrixSceneRecogn = zeros(trainingDBSize);
-    for index = 1:testDBSize
+    parfor index = 1:testDBSize
         for i = 1:trainingDBSize
             confusionMatrixSceneRecogn(i,index) = norm(scoresTest(index,:)-scoresTraining(i,:));
         end
-        if rem(index,100)==0
-                fprintf('Scene Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
-        end
+%         if rem(index,100)==0
+%                 fprintf('Scene Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
+%         end
     end
     save('data/confMatrix.mat','confusionMatrixSceneRecogn','-append');
     disp('ConfusionMatrix of Scenes saved')
@@ -243,15 +256,15 @@ end
 
 %------------------------Confusion Matrix CNN Features---------------------
 if RunConf
-    disp('Start tests')
+    disp('Start calculating the confusion matrix for the CNN features')
     confusionMatrixCNNFeat = zeros(trainingDBSize);
     parfor index = 1:testDBSize
         for i = 1:trainingDBSize
             confusionMatrixCNNFeat(i,index) = norm(lastFCtest(:,index)-lastFCtraining(:,i));
         end
-        if rem(index,100)==0
-                fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
-        end
+%         if rem(index,100)==0
+%                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
+%         end
     end
     save('data/confMatrix.mat','confusionMatrixCNNFeat','-append');
 else
@@ -485,15 +498,16 @@ end
 errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
 errorDistMean = sum(errorDistance)/size(errorDistance,1);
 errorDistMax = max(errorDistance);
-fprintf('--------------------------RESULT---------------------------------\n');
+fprintf('\n--------------------------RESULT---------------------------------\n');
 fprintf('--INPUT:\n');
 fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
 fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
 fprintf('The ConfMatCNN is %.4f\n',ConfMatCNN);
 fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
 fprintf('\n--OUTPUT:\n');
+fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',trainingDBSize_original-trainingDBSize,testDBSize_original-testDBSize);
 fprintf('The Mean Squared Error of the distance is %.2f meter^2\nWith a mean of the error of %.2f meter, and a maximal error of %.2f meter.\n',errorDistMSE,errorDistMean,errorDistMax);
-fprintf('-----------------------------------------------------------------\n');
+fprintf('-----------------------------------------------------------------\n\n');
 %--------------------------------------------------------------------------
 
 
