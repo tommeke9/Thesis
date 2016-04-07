@@ -1,7 +1,12 @@
-% check setup instructions in readme
-clear all
-close all
-clc
+function [ ObjectLocation ] = calc_object_locations( n_box_max, images )
+%Calculate the object locations using the DeepProposals algortihm from 'A.
+%Gohdrati et Al'
+%OUTPUT: ObjectLocation(n_box_max,5,ImgDbSize) ==> each box has this format: [x y x+w y+h]
+
+addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
+
+% Define the sizes of the DB
+DBSize = size(images,4);
 
 %%%%%%%%%%%%%%%%%%%%%
 %set parameters and load models
@@ -37,7 +42,6 @@ end
 %cnn
 net = load(opts.model.cnn);
 net_gpu = net;%vl_simplenn_move(net, 'gpu'); %Work with CPU for now
-%net_gpu = vl_simplenn_move(net, 'gpu'); %Work with CPU for now
 
 %load objectness models
 mdl_obj = train_objectness(win_sizes, net_gpu, opts);
@@ -50,39 +54,15 @@ mdl_contour = mdl_contour.model;
 %%%%%%%%%%%%%%%%%%%%%
 %main process
 %%%%%%%%%%%%%%%%%%%%%
-%read image
-%im1 = imread('cameraman.tif');
-im1 = imread('livingroom.jpg');
+ObjectLocation = zeros(n_box_max,5,DBSize);
+for i = 1:DBSize
+    %compute feature maps
+    x_map = compute_featmaps(images(:,:,:,i), net_gpu, opts);
 
-%compute feature maps
-x_map = compute_featmaps(im1, net_gpu, opts);
-
-%entry to the deepProposal
-gen_time = tic;
-boxes = deepProposal( im1, x_map, mdl_obj, mdl_contour, win_sizes, opts );
-ptime = toc(gen_time);
-nbox = size(boxes, 1);
-fprintf('-processing one image in %0.4f sec\n', ptime);  
-
-%%%%%%%%%%%%%%%%%%%%%
-%visualization
-%%%%%%%%%%%%%%%%%%%%%
-%visualization of proposals    
-n_box_show = 5;
-fprintf('-showing the first %d boxes\n', n_box_show);
-%show first n_box_show boxes in the image
-subplot(1,2,1), imshow(im1);
-xp=boxes(1:min(n_box_show,nbox), 1:4); 
-xp(:,[3 4])= xp(:,[3 4])-xp(:,[1 2])+1;
-colors=[];
-for r=1:size(xp,1)
-    colors=cat(1,colors, rand(1,3)); 
-    rectangle('Position', xp(r,:), 'EdgeColor', colors(r,:), 'LineWidth', 3); 
+    %entry to the deepProposal
+    boxes = deepProposal( images(:,:,:,i), x_map, mdl_obj, mdl_contour, win_sizes, opts );
+    nbox = size(boxes, 1);
+    ObjectLocation(:,:,i)=boxes(1:min(n_box_max,nbox), :);
 end
-%heatmap of boxes
-im_heat = zeros(size(im1,1), size(im1,2)); im1=double(im1);
-for o=1:n_box_show %size(boxes_i,1)
-    bb=boxes(o,:);
-    im_heat(bb(2):bb(4), bb(1):bb(3)) = im_heat(bb(2):bb(4), bb(1):bb(3)) + im1(bb(2):bb(4), bb(1):bb(3));
 end
-subplot(1,2,2), imshow(im_heat,[]);
+

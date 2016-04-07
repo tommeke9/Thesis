@@ -9,15 +9,14 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %------------------------VARIABLES-----------------------------------------
 PlotOn = 0; %Plot Debugging figures
 
-%WARNING: If change of testDB ==>
-%RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
+%WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
 testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 31;
 
 %WARNING: If change of edgeThreshold ==> Put RunConfScene AND RunConf to 1
-edgeThresholdTraining = 0.07;%0.07;
-edgeThresholdTest = 0;%0.05;
+edgeThresholdTraining = 0.05;%0.07;
+edgeThresholdTest = 0.05;%0.05;
 
 RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
 RunConf = 1;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
@@ -26,7 +25,16 @@ PlotRoute = 0;  %1 = plot the route on a floorplan
 %Scene Recognition
 calcScenesTrainingDB = 0;   %1 if recalc of the scenes for the trainingDB is necessary.
 calcScenesTestDB = 0;       %1 if recalc of the scenes for the testDB is necessary.
-RunConfScene = 1;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
+RunConfScene = 0;           %1 = recalc the Conf. matrix for the Scene Recognition, 0 = Load the Conf. Matrix
+
+%Object Localisation
+calcObjLocTraining = 0;
+calcObjLocTest = 0;
+n_box_max = 5;
+
+%Object Recognition
+calcObjRecTraining = 1;
+calcObjRecTest = 1;
 
 ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
 
@@ -145,7 +153,11 @@ if RunCNN
             fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize_original);
         end
     end
-    save('data/lastFCesatDB.mat','lastFCtraining','-append');
+    if exist('data/lastFCesatDB.mat', 'file')
+        save('data/lastFCesatDB.mat','lastFCtraining','-append');
+    else
+        save('data/lastFCesatDB.mat','lastFCtraining');
+    end
     clear lastFCtemp index res
     
     %Same for testDB
@@ -159,7 +171,11 @@ if RunCNN
             fprintf('test %d ~ %d of %d \n',index-99,index,testDBSize_original);
         end
     end
-    save('data/lastFCesatDB.mat','lastFCtest','-append');
+    if exist('data/lastFCesatDB.mat', 'file')
+        save('data/lastFCesatDB.mat','lastFCtest','-append');
+    else
+        save('data/lastFCesatDB.mat','lastFCtest');
+    end
     clear lastFCtemp res
     disp('CNN finished')
     %--------------------------------------------------------------------------
@@ -193,7 +209,11 @@ if calcScenesTrainingDB
         end
     end
     
-    save('data/ScenesEsatDB.mat','scoresTraining','-append');
+    if exist('data/ScenesEsatDB.mat', 'file')
+        save('data/ScenesEsatDB.mat','scoresTraining','-append');
+    else
+        save('data/ScenesEsatDB.mat','scoresTraining');
+    end
     disp('Scenes saved for the trainingDB')
 else
     disp('Scenes for the TrainingDB not recalculated')
@@ -214,7 +234,11 @@ if calcScenesTestDB
         [bestScoreScene(index), bestScene(index)] = max(scoresTest(index,:)) ;
     end
     
-    save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene','-append');
+    if exist('data/ScenesEsatDB.mat', 'file')
+        save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene','-append');
+    else
+        save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene');
+    end
     disp('Scenes saved for the testDB')
 else 
     disp('Scenes for the testDB not recalculated')
@@ -236,7 +260,11 @@ if RunConfScene
 %                 fprintf('Scene Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
 %         end
     end
-    save('data/confMatrix.mat','confusionMatrixSceneRecogn','-append');
+    if exist('data/confMatrix.mat', 'file')
+        save('data/confMatrix.mat','confusionMatrixSceneRecogn','-append');
+    else
+        save('data/confMatrix.mat','confusionMatrixSceneRecogn');
+    end
     disp('ConfusionMatrix of Scenes saved')
 else
     disp('ConfusionMatrix of Scenes not recalculated')
@@ -252,7 +280,113 @@ if PlotOn
 end
 %--------------------------------------------------------------------------
 
+%-------------------Object Localisation & Recognition----------------------
+%GOAL: Save for every image the scores for every objectcategory and the objectlocation on the image. (Thus
+%a score for every object in the DB) This will be added to the
+%ConfusionMatrix and used for the localisation.
 
+%LOCALISATION using DeepProposals from 'A. Gohdrati et Al'
+if calcObjLocTraining
+    disp('Recalculate object locations for the trainingDB')
+    delete(gcp('nocreate'))
+    trainingObjectLocation = calc_object_locations( n_box_max, trainingImg_original );
+    
+    if exist('data/Objects.mat', 'file')
+        save('data/Objects.mat','trainingObjectLocation','-append');
+    else
+        save('data/Objects.mat','trainingObjectLocation');
+    end
+    disp('Object locations saved for the trainingDB')
+else
+    disp('Object locations for the trainingDB not recalculated')
+    load('data/Objects.mat','trainingObjectLocation');
+end
+
+if calcObjLocTest
+    disp('Recalculate object locations for the testDB')
+    delete(gcp('nocreate'))
+    testObjectLocation = calc_object_locations( n_box_max, testImg_original );
+    
+    if exist('data/Objects.mat', 'file')
+        save('data/Objects.mat','testObjectLocation','-append');
+    else
+        save('data/Objects.mat','testObjectLocation');
+    end
+    disp('Object locations saved for the testDB')
+else
+    disp('Object locations for the testDB not recalculated')
+    load('data/Objects.mat','testObjectLocation');
+end
+
+
+%RECOGNITION
+if calcObjRecTraining
+    disp('Recalculate object recognition for the trainingDB')
+    delete(gcp('nocreate'))
+    tic
+    trainingObjectRecognition = calc_object_recognition( trainingImg_original, trainingObjectLocation, net );
+    toc
+    tic
+    disp('Objects recognized, now selecting one object for each box')
+    bestScoreObject_training = zeros(n_box_max,trainingDBSize_original);
+    objectName_training = cell(n_box_max,trainingDBSize_original);
+    for index = 1:trainingDBSize_original
+        for i = 1:n_box_max
+             % the classification result
+            [bestScoreObject_training(i,index), best] = max(trainingObjectRecognition(:,i,index)) ;
+            objectName_training{i,index} = net.classes.description{best};
+        end
+    end
+    toc
+    if exist('data/Objects.mat', 'file')
+        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training','-append');
+    else
+        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training');
+    end
+    disp('Object recognition saved for the trainingDB')
+else
+    disp('Object recognition for the trainingDB not recalculated')
+    load('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training');
+end
+
+if calcObjRecTest
+    disp('Recalculate object recognition for the testDB')
+    delete(gcp('nocreate'))
+    testObjectRecognition = calc_object_recognition( testImg_original, testObjectLocation, net );
+    
+    disp('Objects recognized, now selecting one object for each box')
+    bestScoreObject_test = zeros(n_box_max,testDBSize_original);
+    objectName_test = cell(n_box_max,testDBSize_original);
+    for index = 1:testDBSize_original
+        for i = 1:n_box_max
+             % the classification result
+            [bestScoreObject_test(i,index), best] = max(testObjectRecognition(:,i,index)) ;
+            objectName_test{i,index} = net.classes.description{best};
+        end
+    end
+    if exist('data/Objects.mat', 'file')
+        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectName_test','-append');
+    else
+        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectName_test');
+    end
+    disp('Object recognition saved for the testDB')
+else
+    disp('Object recognition for the testDB not recalculated')
+    load('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectName_test');
+end
+
+
+trainingObjectLocation(:,:,TrainingToDelete(:)) = [];
+testObjectLocation(:,:,TestToDelete(:)) = [];
+
+testObjectRecognition(:,:,TestToDelete(:)) = [];
+bestScoreObject_test(:,TestToDelete(:)) = [];
+objectName_test{:,TestToDelete(:)} = [];
+
+trainingObjectRecognition(:,:,TrainingToDelete(:)) = [];
+bestScoreObject_training(:,TrainingToDelete(:)) = [];
+objectName_training{:,TrainingToDelete(:)} = [];
+%--------------------------------------------------------------------------
 
 %------------------------Confusion Matrix CNN Features---------------------
 if RunConf
@@ -266,7 +400,11 @@ if RunConf
 %                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
 %         end
     end
-    save('data/confMatrix.mat','confusionMatrixCNNFeat','-append');
+    if exist('data/confMatrix.mat', 'file')
+        save('data/confMatrix.mat','confusionMatrixCNNFeat','-append');
+    else
+        save('data/confMatrix.mat','confusionMatrixCNNFeat');
+    end
 else
     disp('ConfusionMatrix not recalculated')
     load('confMatrix.mat');
