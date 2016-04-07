@@ -323,10 +323,9 @@ end
 if calcObjRecTraining
     disp('Recalculate object recognition for the trainingDB')
     delete(gcp('nocreate'))
-    tic
+    
     trainingObjectRecognition = calc_object_recognition( trainingImg_original, trainingObjectLocation, net );
-    toc
-    tic
+    
     disp('Objects recognized, now selecting one object for each box')
     bestScoreObject_training = zeros(n_box_max,trainingDBSize_original);
     objectName_training = cell(n_box_max,trainingDBSize_original);
@@ -337,7 +336,6 @@ if calcObjRecTraining
             objectName_training{i,index} = net.classes.description{best};
         end
     end
-    toc
     if exist('data/Objects.mat', 'file')
         save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training','-append');
     else
@@ -352,6 +350,7 @@ end
 if calcObjRecTest
     disp('Recalculate object recognition for the testDB')
     delete(gcp('nocreate'))
+    
     testObjectRecognition = calc_object_recognition( testImg_original, testObjectLocation, net );
     
     disp('Objects recognized, now selecting one object for each box')
@@ -388,6 +387,38 @@ bestScoreObject_training(:,TrainingToDelete(:)) = [];
 objectName_training{:,TrainingToDelete(:)} = [];
 %--------------------------------------------------------------------------
 
+%------------------Confusion Matrix Object recognition---------------------
+if RunConfObjects
+    disp('Start calculating the confusion matrix for the Object Recognition')
+    confusionMatrixObjects = zeros(trainingDBSize);
+    parfor index = 1:testDBSize
+        for i = 1:trainingDBSize
+            confusionMatrixObjects(i,index) = norm(testObjectRecognition(:,:,index)-trainingObjectRecognition(:,:,i)); %To Check!
+        end
+%         if rem(index,100)==0
+%                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
+%         end
+    end
+    if exist('data/confMatrix.mat', 'file')
+        save('data/confMatrix.mat','confusionMatrixObjects','-append');
+    else
+        save('data/confMatrix.mat','confusionMatrixObjects');
+    end
+else
+    disp('ConfusionMatrix for the Object Recognition not recalculated')
+    load('confMatrix.mat','confusionMatrixObjects');
+end
+
+if PlotOn
+    figure;
+    imagesc(confusionMatrixObjects)
+    title('Confusion Matrix Object recognition')
+    xlabel('Training Image')
+    ylabel('Test Image')
+end
+%--------------------------------------------------------------------------
+
+
 %------------------------Confusion Matrix CNN Features---------------------
 if RunConf
     disp('Start calculating the confusion matrix for the CNN features')
@@ -406,8 +437,8 @@ if RunConf
         save('data/confMatrix.mat','confusionMatrixCNNFeat');
     end
 else
-    disp('ConfusionMatrix not recalculated')
-    load('confMatrix.mat');
+    disp('ConfusionMatrix CNN features not recalculated')
+    load('confMatrix.mat','confusionMatrixCNNFeat');
 end
 
 if PlotOn
