@@ -7,13 +7,12 @@ clc
 run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
-net = load('imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
+net = load('data/cnns/imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
 
 load('svm.mat')
 load('scenes.mat') %To be deleted...
 lastFClayer = 31;
 
-%testImage = imread('data/bookstore.jpg');
 testImage = imread(imgetfile);
 testImage_ = single(testImage) ; % note: 0-255 range
 testImage_ = imresize(testImage_, net.normalization.imageSize(1:2)) ;

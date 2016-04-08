@@ -19,7 +19,7 @@ disp('dataset loaded')
 run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
-net = load('imagenet-vgg-verydeep-16.mat');
+net = load('data/cnns/imagenet-vgg-verydeep-16.mat');
 
 if RunCNN
 

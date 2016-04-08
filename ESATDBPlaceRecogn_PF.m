@@ -53,7 +53,7 @@ widthRoom68 = 3; %used to calculate the error
 %--------------------------------------------------------------------------
 
 % load the pre-trained CNN
-net = load('imagenet-vgg-verydeep-16.mat') ;
+net = load('data/cnns/imagenet-vgg-verydeep-16.mat') ;
 
 disp('loading ESAT DB')
 switch testDB
