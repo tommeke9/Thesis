@@ -8,7 +8,7 @@ addpath data data/newDB deps/matconvnet-1.0-beta16
 
 %Run setup before! to compile matconvnet
 %Variables:
-lastFClayer = 31;
+lastFClayer = 13;
 RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
 RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
 RunROCTest = 1; %1 = show the ROC-curves, 0 = do not show the ROC-curves
@@ -74,18 +74,26 @@ validationDBSize = size(validationDB,2);
 run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
 % load the pre-trained CNN
-net = load('data/cnns/imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
+net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ;
+if sum(size(net.meta.normalization.averageImage)) == 4
+    averageImage(:,:,1) = net.meta.normalization.averageImage(1) * ones(net.meta.normalization.imageSize(1:2));
+    averageImage(:,:,2) = net.meta.normalization.averageImage(2) * ones(net.meta.normalization.imageSize(1:2));
+    averageImage(:,:,3) = net.meta.normalization.averageImage(3) * ones(net.meta.normalization.imageSize(1:2));
+else
+    averageImage = net.meta.normalization.averageImage;
+end
 
 if RunCNN
 
     
     % ------------load and preprocess the images---------------------------------
     disp('Normalization')
+    
     % im = imread('data/office.jpg') ;
     for index = 1:trainingDBSize
         im_temp = single(images(:,:,:,trainingDB(index))) ; % note: 0-255 range
-        im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
-        im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
+        im_temp = imresize(im_temp, net.meta.normalization.imageSize(1:2)) ;
+        im_(:,:,:,index) = im_temp - averageImage ;
     end
     clear im_temp 
     disp('Normalization finished')
@@ -129,8 +137,8 @@ if RunSVMTraining
     for index = 1:validationDBSize
         %Normalize ValidationDB
         im_temp = single(images(:,:,:,validationDB(index))) ; % note: 0-255 range
-        im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
-        im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
+        im_temp = imresize(im_temp, net.meta.normalization.imageSize(1:2)) ;
+        im_(:,:,:,index) = im_temp - averageImage ;
         %Run CNN on ValidationDB
         resVal = vl_simplenn(net, im_(:,:,:,index)) ; 
         %lastFCVal = squeeze(gather(resVal(lastFClayer+1).x));
@@ -358,11 +366,13 @@ output = zeros(amountOfScenes,testDBSize);
 target = zeros(amountOfScenes,testDBSize);
 correct = 0;
 Result = zeros(amountOfScenes,3); %columns: 1. # scenes in testDB. 2. # True Positives. 3. #False Positives
+
+
 for index = 1:testDBSize
     %Normalize
     im_temp = single(images(:,:,:,testDB(index))) ; % note: 0-255 range
-    im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
-    im_(:,:,:,index) = im_temp - net.normalization.averageImage ;
+    im_temp = imresize(im_temp, net.meta.normalization.imageSize(1:2)) ;
+    im_(:,:,:,index) = im_temp - averageImage ;
     %Run CNN
     resTest = vl_simplenn(net, im_(:,:,:,index)) ; 
     %lastFCTest = squeeze(gather(resTest(lastFClayer+1).x));

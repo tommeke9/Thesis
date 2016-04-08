@@ -7,12 +7,12 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 
 %Run setup before! to compile matconvnet
 %------------------------VARIABLES-----------------------------------------
-PlotOn = 0; %Plot Debugging figures
+PlotOn = 1; %Plot Debugging figures
 
 %WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
 testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
-lastFClayer = 31;
+lastFClayer = 13;
 
 %WARNING: If change of edgeThreshold ==> Put RunConfScene AND RunConf to 1
 edgeThresholdTraining = 0.05;%0.07;
@@ -30,16 +30,18 @@ RunConfScene = 0;           %1 = recalc the Conf. matrix for the Scene Recogniti
 %Object Localisation
 calcObjLocTraining = 0;
 calcObjLocTest = 0;
-n_box_max = 5;
+n_box_max = 5; % Max amount of boxes to be used for object recognition
 
 %Object Recognition
-calcObjRecTraining = 1;
-calcObjRecTest = 1;
+calcObjRecTraining = 0;
+calcObjRecTest = 0;
+RunConfObjects = 1;
+n_labels_max = 5; %Max amount of recognized objects per box
 
 ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
 
 %Particle Filter
-FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
+%FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
 SpeedStDev = 2;                 %Standard deviation on calculated speed
 Speed = 1;                      %speed of walking
 RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
@@ -53,7 +55,14 @@ widthRoom68 = 3; %used to calculate the error
 %--------------------------------------------------------------------------
 
 % load the pre-trained CNN
-net = load('data/cnns/imagenet-vgg-verydeep-16.mat') ;
+net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ;
+if sum(size(net.meta.normalization.averageImage)) == 4
+    averageImage(:,:,1) = net.meta.normalization.averageImage(1) * ones(net.meta.normalization.imageSize(1:2));
+    averageImage(:,:,2) = net.meta.normalization.averageImage(2) * ones(net.meta.normalization.imageSize(1:2));
+    averageImage(:,:,3) = net.meta.normalization.averageImage(3) * ones(net.meta.normalization.imageSize(1:2));
+else
+    averageImage = net.meta.normalization.averageImage;
+end
 
 disp('loading ESAT DB')
 switch testDB
@@ -124,18 +133,19 @@ if RunCNN
     
     % ------------load and preprocess the images---------------------------------
     disp('Normalization')
-    parfor index = 1:trainingDBSize_original
+    imSize = net.meta.normalization.imageSize(1:2);
+    for index = 1:trainingDBSize_original
         im_temp = single(trainingImg_original(:,:,:,index)) ; % note: 0-255 range
-        im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
-        trainingImgNorm(:,:,:,index) = im_temp - net.normalization.averageImage ;
+        im_temp = imresize(im_temp, imSize) ;
+        trainingImgNorm(:,:,:,index) = im_temp - averageImage ;
     end
     clear im_temp index
-    parfor index = 1:testDBSize_original
+    for index = 1:testDBSize_original
         im_temp = single(testImg_original(:,:,:,index)) ; % note: 0-255 range
-        im_temp = imresize(im_temp, net.normalization.imageSize(1:2)) ;
-        testImgNorm(:,:,:,index) = im_temp - net.normalization.averageImage ;
+        im_temp = imresize(im_temp, imSize) ;
+        testImgNorm(:,:,:,index) = im_temp - averageImage ;
     end
-    clear im_temp index
+    clear im_temp index imSize
     disp('Normalization finished')
     %--------------------------------------------------------------------------
 
@@ -252,7 +262,7 @@ bestScene(TestToDelete(:)) = [];
 if RunConfScene
     disp('Start to compare scenes')
     confusionMatrixSceneRecogn = zeros(trainingDBSize);
-    parfor index = 1:testDBSize
+    for index = 1:testDBSize
         for i = 1:trainingDBSize
             confusionMatrixSceneRecogn(i,index) = norm(scoresTest(index,:)-scoresTraining(i,:));
         end
@@ -324,81 +334,90 @@ if calcObjRecTraining
     disp('Recalculate object recognition for the trainingDB')
     delete(gcp('nocreate'))
     
-    trainingObjectRecognition = calc_object_recognition( trainingImg_original, trainingObjectLocation, net );
+    trainingObjectRecognition = calc_object_recognition( trainingImg_original, trainingObjectLocation, net, n_labels_max );
     
     disp('Objects recognized, now selecting one object for each box')
-    bestScoreObject_training = zeros(n_box_max,trainingDBSize_original);
-    objectName_training = cell(n_box_max,trainingDBSize_original);
-    for index = 1:trainingDBSize_original
-        for i = 1:n_box_max
-             % the classification result
-            [bestScoreObject_training(i,index), best] = max(trainingObjectRecognition(:,i,index)) ;
-            objectName_training{i,index} = net.classes.description{best};
-        end
-    end
+    
+    % the classification result
+    bestScoreObject_training = squeeze(trainingObjectRecognition(1,2,:,:)) ; % bestScoreObject_training(Frame_number,img_Number)
+    objectNumber_training = squeeze(trainingObjectRecognition(1,1,:,:)) ; % objectNumber_training(Frame_number,img_Number)
+    objectName_training = reshape(net.meta.classes.description(objectNumber_training(:)),size(objectNumber_training));
+   
     if exist('data/Objects.mat', 'file')
-        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training','-append');
+        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training','-append');
     else
-        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training');
+        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training');
     end
     disp('Object recognition saved for the trainingDB')
 else
     disp('Object recognition for the trainingDB not recalculated')
-    load('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectName_training');
+    load('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training');
 end
 
 if calcObjRecTest
     disp('Recalculate object recognition for the testDB')
     delete(gcp('nocreate'))
     
-    testObjectRecognition = calc_object_recognition( testImg_original, testObjectLocation, net );
+    testObjectRecognition = calc_object_recognition( testImg_original, testObjectLocation, net, n_labels_max );
     
     disp('Objects recognized, now selecting one object for each box')
-    bestScoreObject_test = zeros(n_box_max,testDBSize_original);
-    objectName_test = cell(n_box_max,testDBSize_original);
-    for index = 1:testDBSize_original
-        for i = 1:n_box_max
-             % the classification result
-            [bestScoreObject_test(i,index), best] = max(testObjectRecognition(:,i,index)) ;
-            objectName_test{i,index} = net.classes.description{best};
-        end
-    end
+    
+    % the classification result
+    bestScoreObject_test = squeeze(testObjectRecognition(1,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
+    objectNumber_test = squeeze(testObjectRecognition(1,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
+    objectName_test = reshape(net.meta.classes.description(objectNumber_test(:)),size(objectNumber_test));
+    
     if exist('data/Objects.mat', 'file')
-        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectName_test','-append');
+        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test','-append');
     else
-        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectName_test');
+        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test');
     end
     disp('Object recognition saved for the testDB')
 else
     disp('Object recognition for the testDB not recalculated')
-    load('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectName_test');
+    load('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test');
 end
 
 
 trainingObjectLocation(:,:,TrainingToDelete(:)) = [];
 testObjectLocation(:,:,TestToDelete(:)) = [];
 
-testObjectRecognition(:,:,TestToDelete(:)) = [];
+testObjectRecognition(:,:,:,TestToDelete(:)) = [];
 bestScoreObject_test(:,TestToDelete(:)) = [];
-objectName_test{:,TestToDelete(:)} = [];
+objectName_test(:,TestToDelete(:)) = [];
+objectNumber_test(:,TestToDelete(:)) = [];
 
-trainingObjectRecognition(:,:,TrainingToDelete(:)) = [];
+trainingObjectRecognition(:,:,:,TrainingToDelete(:)) = [];
 bestScoreObject_training(:,TrainingToDelete(:)) = [];
-objectName_training{:,TrainingToDelete(:)} = [];
+objectName_training(:,TrainingToDelete(:)) = [];
+objectNumber_training(:,TestToDelete(:)) = [];
 %--------------------------------------------------------------------------
 
 %------------------Confusion Matrix Object recognition---------------------
 if RunConfObjects
     disp('Start calculating the confusion matrix for the Object Recognition')
     confusionMatrixObjects = zeros(trainingDBSize);
-    parfor index = 1:testDBSize
+    for index = 1:testDBSize
         for i = 1:trainingDBSize
-            confusionMatrixObjects(i,index) = norm(testObjectRecognition(:,:,index)-trainingObjectRecognition(:,:,i)); %To Check!
+            test = objectNumber_test(:,index);
+            %training = objectNumber_training(:,i);
+            
+            for q = 1:n_box_max
+                for z = 1:n_box_max
+                    if objectNumber_training(q,i) == test(z)
+                        confusionMatrixObjects(i,index) = confusionMatrixObjects(i,index) - 1;
+                        test(z) = [];
+                        break
+                    end
+                end
+            end
+            
         end
+        
+    end
 %         if rem(index,100)==0
 %                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
 %         end
-    end
     if exist('data/confMatrix.mat', 'file')
         save('data/confMatrix.mat','confusionMatrixObjects','-append');
     else
@@ -423,7 +442,7 @@ end
 if RunConf
     disp('Start calculating the confusion matrix for the CNN features')
     confusionMatrixCNNFeat = zeros(trainingDBSize);
-    parfor index = 1:testDBSize
+    for index = 1:testDBSize
         for i = 1:trainingDBSize
             confusionMatrixCNNFeat(i,index) = norm(lastFCtest(:,index)-lastFCtraining(:,i));
         end
