@@ -6,6 +6,7 @@ TrainingCoordinates = makeTrainingCoordinates();
 addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 
 %Run setup before! to compile matconvnet
+%%
 %------------------------VARIABLES-----------------------------------------
 PlotOn = 1; %Plot Debugging figures
 
@@ -14,9 +15,9 @@ testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 13;
 
-%WARNING: If change of edgeThreshold ==> Put RunConfScene AND RunConf to 1
-edgeThresholdTraining = 0.05;%0.07;
-edgeThresholdTest = 0.05;%0.05;
+%WARNING: If change of edgeThreshold ==> Put RunConfScene AND RunConfCNN AND RunConfObjects to 1
+edgeThresholdTraining = 0;%0.05;
+edgeThresholdTest = 0.075;%0.05;
 
 RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
 RunConfCNN = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
@@ -51,14 +52,14 @@ SpeedStDev = 2;                 %Standard deviation on calculated speed
 Speed = 1;                      %speed of walking
 RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
 N = 2500;                       %Amount of particles
-PlotPF = 0;                     %1 = plot the PF for debugging & testing
+PlotPF = 1;                     %1 = plot the PF for debugging & testing
 
 locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
 widthRoom68 = 3; %used to calculate the error
 
 %--------------------------------------------------------------------------
-
+%%
 % load the pre-trained CNN
 net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ;
 if sum(size(net.meta.normalization.averageImage)) == 4
@@ -93,6 +94,7 @@ testDBSize_original = size(testImg_original,4);
 delete(gcp('nocreate'))
 run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
+%%
 %--------------------------Edge  Detection---------------------------------
 %Leave the images out of the training & test if the amount of edges is below a
 %specific treshold
@@ -104,8 +106,8 @@ testImg = testImg_original;
 %uselessTrainingImg = zeros(trainingDBSize,1);
 TrainingToDelete = [];
 parfor index = 1:trainingDBSize_original
-    [~,threshOut] = edge(rgb2gray(trainingImg(:,:,:,index)));
-    if threshOut < edgeThresholdTraining
+    [~,threshOut_training(index)] = edge(rgb2gray(trainingImg(:,:,:,index)));
+    if threshOut_training(index) < edgeThresholdTraining
         TrainingToDelete = [TrainingToDelete,index];
         %uselessTrainingImg(index) = 1;
     end
@@ -116,26 +118,26 @@ TrainingCoordinates(TrainingToDelete(:),:) = [];
 %uselessTestImg = zeros(testDBSize,1);
 TestToDelete = [];
 parfor index = 1:testDBSize_original
-    [~,threshOut] = edge(rgb2gray(testImg(:,:,:,index)));
-    if threshOut < edgeThresholdTest
+    [~,threshOut_test(index)] = edge(rgb2gray(testImg(:,:,:,index)));
+    if threshOut_test(index) < edgeThresholdTest
         TestToDelete = [TestToDelete,index];
         %uselessTestImg(index) = 1;
     end
 end
-testImg(:,:,:,TestToDelete(:)) = [];
-TestCoordinates(TestToDelete(:),:) = [];
+% testImg(:,:,:,TestToDelete(:)) = [];
+% TestCoordinates(TestToDelete(:),:) = [];
 
 % Define the sizes of the new DB
 trainingDBSize = size(trainingImg,4);
 testDBSize = size(testImg,4);
 %--------------------------------------------------------------------------
 
-
+%%
 if RunCNN
 
 
 
-    
+
     % ------------load and preprocess the images---------------------------------
     disp('Normalization')
     imSize = net.meta.normalization.imageSize(1:2);
@@ -154,7 +156,7 @@ if RunCNN
     disp('Normalization finished')
     %--------------------------------------------------------------------------
 
-
+    
     % ---------------------------------Run CNN---------------------------------
     disp('Run CNN')
     delete(gcp('nocreate'))
@@ -203,8 +205,9 @@ lastFCtraining_original = lastFCtraining;
 lastFCtest_original = lastFCtest;
 
 lastFCtraining(:,TrainingToDelete(:)) = [];
-lastFCtest(:,TestToDelete(:)) = [];
+% lastFCtest(:,TestToDelete(:)) = [];
 
+%%
 %-------------------------------Scene Recognition--------------------------
 %GOAL: Save for every test image the scores for every scenetype. (Thus
 %a score for every scene in the testDB) This will be added to the
@@ -259,9 +262,9 @@ else
     disp('Scenes for the testDB not recalculated')
     load('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene');
 end
-scoresTest(TestToDelete(:),:) = [];
-bestScoreScene(TestToDelete(:)) = [];
-bestScene(TestToDelete(:)) = [];
+% scoresTest(TestToDelete(:),:) = [];
+% bestScoreScene(TestToDelete(:)) = [];
+% bestScene(TestToDelete(:)) = [];
 
 %Make a temporary confusionMatrix for the scene-recognition
 if RunConfScene
@@ -290,11 +293,12 @@ if PlotOn
     figure;
     imagesc(confusionMatrixSceneRecogn)
     title('Confusion Matrix Scene Recognition')
-    xlabel('Training Image')
-    ylabel('Test Image')
+    ylabel('Training Image')
+    xlabel('Test Image')
 end
 %--------------------------------------------------------------------------
 
+%%
 %-------------------Object Localisation & Recognition----------------------
 %GOAL: Save for every image the scores for every objectcategory and the objectlocation on the image. (Thus
 %a score for every object in the DB) This will be added to the
@@ -385,19 +389,20 @@ end
 
 
 trainingObjectLocation(:,:,TrainingToDelete(:)) = [];
-testObjectLocation(:,:,TestToDelete(:)) = [];
-
-testObjectRecognition(:,:,:,TestToDelete(:)) = [];
-bestScoreObject_test(:,TestToDelete(:)) = [];
-objectName_test(:,TestToDelete(:)) = [];
-objectNumber_test(:,TestToDelete(:)) = [];
+% testObjectLocation(:,:,TestToDelete(:)) = [];
+% 
+% testObjectRecognition(:,:,:,TestToDelete(:)) = [];
+% bestScoreObject_test(:,TestToDelete(:)) = [];
+% objectName_test(:,TestToDelete(:)) = [];
+% objectNumber_test(:,TestToDelete(:)) = [];
 
 trainingObjectRecognition(:,:,:,TrainingToDelete(:)) = [];
 bestScoreObject_training(:,TrainingToDelete(:)) = [];
 objectName_training(:,TrainingToDelete(:)) = [];
-objectNumber_training(:,TestToDelete(:)) = [];
+% objectNumber_training(:,TestToDelete(:)) = [];
 %--------------------------------------------------------------------------
 
+%%
 %------------------Confusion Matrix Object recognition---------------------
 if RunConfObjects
     disp('Start calculating the confusion matrix for the Object Recognition')
@@ -438,12 +443,12 @@ if PlotOn
     figure;
     imagesc(confusionMatrixObjects)
     title('Confusion Matrix Object recognition')
-    xlabel('Training Image')
-    ylabel('Test Image')
+    ylabel('Training Image')
+    xlabel('Test Image')
 end
 %--------------------------------------------------------------------------
 
-
+%%
 %------------------------Confusion Matrix CNN Features---------------------
 if RunConfCNN
     disp('Start calculating the confusion matrix for the CNN features')
@@ -470,15 +475,47 @@ if PlotOn
     figure;
     imagesc(confusionMatrixCNNFeat)
     title('Confusion Matrix CNN features')
-    xlabel('Training Image')
-    ylabel('Test Image')
+    ylabel('Training Image')
+    xlabel('Test Image')
 end
 %--------------------------------------------------------------------------
 
 
+%%
+% %------------------------Confusion Matrix Edges---------------------
+% if RunConfEdges
+%     disp('Start calculating the confusion matrix for the Edges')
+%     confusionMatrixEdges = zeros(trainingDBSize);
+%     for index = 1:testDBSize
+%         for i = 1:trainingDBSize
+%             confusionMatrixEdges(i,index) = abs(threshOut_training(i) - threshOut_test(index));
+%         end
+% %         if rem(index,100)==0
+% %                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
+% %         end
+%     end
+%     if exist('data/confMatrix.mat', 'file')
+%         save('data/confMatrix.mat','confusionMatrixEdges','-append');
+%     else
+%         save('data/confMatrix.mat','confusionMatrixEdges');
+%     end
+% else
+%     disp('ConfusionMatrix Edges not recalculated')
+%     load('confMatrix.mat','confusionMatrixEdges');
+% end
+% 
+% if PlotOn
+%     figure;
+%     imagesc(confusionMatrixEdges)
+%     title('Confusion Matrix Edges')
+%     ylabel('Training Image')
+%     xlabel('Test Image')
+% end
+% %--------------------------------------------------------------------------
 
 
 
+%%
 %------------------------Combine Confusion Matrices------------------------
 disp('Start combining the confusion matrices')
 
@@ -489,11 +526,12 @@ if PlotOn
     figure;
     imagesc(confusionMatrix)
     title('Combined Confusion Matrix')
-    xlabel('Training Image')
-    ylabel('Test Image')
+    ylabel('Training Image')
+    xlabel('Test Image')
 end
 %--------------------------------------------------------------------------
 
+%%
 %------------------------Select Lowest difference--------------------------
 disp('Search lowest difference')
 parfor index = 1:testDBSize
@@ -507,6 +545,7 @@ if PlotOn
     plot(Result,'g')
     hold on
 end
+%%
 %------------------------Spatial Continuity check--------------------------
 d = 2; % Length of evaluation window
 epsilon = 3;
@@ -538,7 +577,7 @@ if PlotOn
     ylabel('training images')
 end
 
-
+%%
 %-------------------------------Sequential Filter--------------------------
 % clear u
 % u = 1;
@@ -555,7 +594,7 @@ end
 
 
 
-
+%%
 %To delete/fix
 FeatureDetectNoiseStDev = max(range(confusionMatrix))/2;
 
@@ -564,23 +603,26 @@ FeatureDetectNoiseStDev = max(range(confusionMatrix))/2;
 
 
 
-
-
-
-
+%%
 %-------------------------------Particle Filter--------------------------
 %Initialize particles
 particles = round(rand(N,1)*(trainingDBSize-1)+1);
 
 if PlotPF
-    figure;
+    figure('units','normalized','outerposition',[0 0 1 1]);
+    vPF = VideoWriter('data/VideoPF.avi');
+    open(vPF)
 end
+ResultPF = zeros(1,testDBSize);
 for index = 1:testDBSize
     
-    %Create weights using the normal distribution pdf & normalize
-    w=ones(N,1)./N;
-    w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
-    w = w/sum(w);
+    if ~any(index == TestToDelete)
+
+        %Create weights using the normal distribution pdf & normalize
+        w=ones(N,1)./N;
+        w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
+        w = w/sum(w);
+    end
     
     if PlotPF
         %plot the particles
@@ -592,60 +634,71 @@ for index = 1:testDBSize
         ylabel('Weight (*10000)');
     end
     
-    %Resample the particles = leave out the unlikely particles
-    u = rand(N,1);
-    wc = cumsum(w);
-    [~,ind1] = sort([u;wc]);
-    ind=find(ind1<=N)-(0:N-1)';
-    particles=particles(ind);
-    
-    
-    if PlotPF
-        subplot(3,3,4);
-        imshow(testImg(:,:,:,index));
-        title(['Test Image ',num2str(index)]);
-
-        subplot(3,3,5);
-        imshow(trainingImg(:,:,:,mode(particles)));
-        title(['Training Image ',num2str(mode(particles))]);
-        
-        %probability(index) = sum(abs(w - mean(w)).^2)/N;%sum(w > mean(w));
-        
-%         subplot(3,3,6);
-%         plot(probability);
-%         axis([0 testDBSize 0 inf])
-%         title('Pobability of correctness');
-%         xlabel('testImage');
-%         ylabel('Prob');
-        
-        subplot(3,3,7:9);
-        histogram(particles);
-        hold on
-        axis([0 trainingDBSize 0 inf])
-        title('Particle histogram');
-        xlabel('Training Image');
-        ylabel('Amount of particles');
+    if ~any(index == TestToDelete)
+        %Resample the particles = leave out the unlikely particles
+        u = rand(N,1);
+        wc = cumsum(w);
+        [~,ind1] = sort([u;wc]);
+        ind=find(ind1<=N)-(0:N-1)';
+        particles=particles(ind);
     end
+    
     
     %motion model
     particles = round(particles + Speed + SpeedStDev*randn(size(particles)));
     particles(particles<=0)=1;
     particles(particles>=trainingDBSize)=trainingDBSize;
     
-    %Randomize a specific percentage to avoid locked particles
-    particles(round(rand(ceil(N*RandPercentage),1)*(N-1)+1)) = round(rand(ceil(N*RandPercentage),1)*(trainingDBSize-1)+1);
-    
+    if ~any(index == TestToDelete)
+        %Randomize a specific percentage to avoid locked particles
+        particles(round(rand(ceil(N*RandPercentage),1)*(N-1)+1)) = round(rand(ceil(N*RandPercentage),1)*(trainingDBSize-1)+1);
+    end
     %Keep result of the PF
     ResultPF(index) = mode(particles);
     
     if PlotPF
-        line([mode(particles) mode(particles)], [0 1000], 'color','r');
+        subplot(3,3,4);
+        imshow(testImg(:,:,:,index));
+        if ~any(index == TestToDelete)
+            title(['Test Image ',num2str(index)]);
+        else
+            title(['Test Image ',num2str(index),' ignored']);
+        end
+
+        subplot(3,3,5);
+        imshow(trainingImg(:,:,:,ResultPF(index)));
+        title(['Training Image ',num2str(ResultPF(index))]);
+            
+        subplot(3,3,7:9);
+        histogram(particles,round(trainingDBSize/10));
+        hold on
+        axis([0 trainingDBSize 0 inf])
+        title('Particle histogram');
+        xlabel('Training Image');
+        ylabel('Amount of particles');
+        
+        
+        line([ResultPF(index) ResultPF(index)], [0 1000], 'color','r');
         hold off
         
-        drawnow
+        subplot(3,3,6);
+        if threshOut_test(index) < edgeThresholdTest
+            bar([threshOut_test(index) threshOut_training(ResultPF(index))],'r');
+        else
+            bar([threshOut_test(index) threshOut_training(ResultPF(index))]);
+        end
+        axis([0.5 2.5 0 0.2])
+        title('Edges detected. first = testDB, last = trainingDB-result from PF');
+        xlabel('Test - Training');
+        ylabel('edges');
+        
+        
+        frame = getframe(gcf);
+        writeVideo(vPF,frame)
     end
     storedParticles(:,index) = particles;
 end
+close(vPF);
 if PlotOn
     figure;
     plot(Result,'g')
@@ -658,7 +711,7 @@ if PlotOn
 end
 %--------------------------------------------------------------------------
 
-
+%%
 %-----------------------------Calculate the error--------------------------
 %Find the calculated test image coordinates
 switch locationMode
@@ -690,7 +743,7 @@ if PlotOn
     ylabel('Error [meter]');
     
     figure;
-    hist(errorDistance)
+    histogram(errorDistance)
     title('Histogram of the error');
     xlabel('Error [meter]');
     ylabel('Amount of frames');
@@ -702,7 +755,7 @@ fprintf('\n--------------------------RESULT---------------------------------\n')
 fprintf('--INPUT:\n');
 fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
 fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
-fprintf('The ConfMatCNN is %.4f\n',ConfMatCNN);
+fprintf('The ConfMatCNN is %.4f, ConfMatObj is %.4f, ConfMatScene is %.4f\n',ConfMatCNN,ConfMatObj,ConfMatScene);
 fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
 fprintf('\n--OUTPUT:\n');
 fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',trainingDBSize_original-trainingDBSize,testDBSize_original-testDBSize);
@@ -710,7 +763,7 @@ fprintf('The mean of the error is %.2f meter, and the maximal error is %.2f mete
 fprintf('-----------------------------------------------------------------\n\n');
 %--------------------------------------------------------------------------
 
-
+%%
 %------------------------------Show traject on map--------------------------
 plotHeight = 1;
 if locationMode == 3
@@ -726,7 +779,6 @@ if PlotRoute
     %hold on;
     v = VideoWriter('data/newfile.avi');
     open(v)
-    tic
     for i=1:testDBSize
         subplot(plotHeight,3,1)
         imshow(Im)
@@ -777,7 +829,6 @@ if PlotRoute
         writeVideo(v,frame)
         %pause(.02);
     end
-    toc
     close(v);
 end
 
