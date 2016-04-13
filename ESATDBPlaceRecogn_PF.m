@@ -688,6 +688,12 @@ if PlotOn
     title('Error');
     xlabel('Test Image');
     ylabel('Error [meter]');
+    
+    figure;
+    hist(errorDistance)
+    title('Histogram of the error');
+    xlabel('Error [meter]');
+    ylabel('Amount of frames');
 end
 %errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
 errorDistMean = sum(errorDistance)/size(errorDistance,1);
