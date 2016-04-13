@@ -19,7 +19,7 @@ edgeThresholdTraining = 0.05;%0.07;
 edgeThresholdTest = 0.05;%0.05;
 
 RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
-RunConf = 1;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
+RunConfCNN = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 0;  %1 = plot the route on a floorplan
 
 %Scene Recognition
@@ -35,10 +35,15 @@ n_box_max = 5; % Max amount of boxes to be used for object recognition
 %Object Recognition
 calcObjRecTraining = 0;
 calcObjRecTest = 0;
-RunConfObjects = 1;
+RunConfObjects = 0;
 n_labels_max = 5; %Max amount of recognized objects per box
 
-ConfMatCNN = 0.875; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
+ConfMatCNN = 0.750; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
+ConfMatObj = 0.125; % 
+ConfMatScene = 0.125;
+if ConfMatCNN+ConfMatObj+ConfMatScene ~=1
+    error('Check the Confusion Matrix parameters.');
+end
 
 %Particle Filter
 %FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
@@ -396,14 +401,13 @@ objectNumber_training(:,TestToDelete(:)) = [];
 %------------------Confusion Matrix Object recognition---------------------
 if RunConfObjects
     disp('Start calculating the confusion matrix for the Object Recognition')
-    confusionMatrixObjects = zeros(trainingDBSize);
+    confusionMatrixObjects = ones(trainingDBSize).*n_box_max;
     for index = 1:testDBSize
         for i = 1:trainingDBSize
             test = objectNumber_test(:,index);
-            %training = objectNumber_training(:,i);
             
             for q = 1:n_box_max
-                for z = 1:n_box_max
+                for z = 1:size(test,1)
                     if objectNumber_training(q,i) == test(z)
                         confusionMatrixObjects(i,index) = confusionMatrixObjects(i,index) - 1;
                         test(z) = [];
@@ -414,10 +418,12 @@ if RunConfObjects
             
         end
         
-    end
+        
 %         if rem(index,100)==0
-%                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
-%         end
+%              fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
+%         end    
+    end
+
     if exist('data/confMatrix.mat', 'file')
         save('data/confMatrix.mat','confusionMatrixObjects','-append');
     else
@@ -439,7 +445,7 @@ end
 
 
 %------------------------Confusion Matrix CNN Features---------------------
-if RunConf
+if RunConfCNN
     disp('Start calculating the confusion matrix for the CNN features')
     confusionMatrixCNNFeat = zeros(trainingDBSize);
     for index = 1:testDBSize
@@ -478,7 +484,7 @@ disp('Start combining the confusion matrices')
 
 %confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + (1-ConfMatCNN) .* confusionMatrixSceneRecogn;
 %confusionMatrix = confusionMatrixCNNFeat .* confusionMatrixSceneRecogn;
-confusionMatrix = ConfMatCNN .* (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat)) + (1-ConfMatCNN) .* (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn));
+confusionMatrix = ConfMatCNN .* (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat)) + ConfMatScene .* (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn)) + ConfMatObj .* (confusionMatrixObjects - min(min(confusionMatrixObjects)))./max(max(confusionMatrixObjects));
 if PlotOn
     figure;
     imagesc(confusionMatrix)
@@ -683,7 +689,7 @@ if PlotOn
     xlabel('Test Image');
     ylabel('Error [meter]');
 end
-errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
+%errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
 errorDistMean = sum(errorDistance)/size(errorDistance,1);
 errorDistMax = max(errorDistance);
 fprintf('\n--------------------------RESULT---------------------------------\n');
@@ -694,7 +700,7 @@ fprintf('The ConfMatCNN is %.4f\n',ConfMatCNN);
 fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
 fprintf('\n--OUTPUT:\n');
 fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',trainingDBSize_original-trainingDBSize,testDBSize_original-testDBSize);
-fprintf('The Mean Squared Error of the distance is %.2f meter^2\nWith a mean of the error of %.2f meter, and a maximal error of %.2f meter.\n',errorDistMSE,errorDistMean,errorDistMax);
+fprintf('The mean of the error is %.2f meter, and the maximal error is %.2f meter.\n',errorDistMean,errorDistMax);
 fprintf('-----------------------------------------------------------------\n\n');
 %--------------------------------------------------------------------------
 
