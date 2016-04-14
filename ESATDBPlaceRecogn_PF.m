@@ -52,7 +52,7 @@ SpeedStDev = 2;                 %Standard deviation on calculated speed
 Speed = 1;                      %speed of walking
 RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
 N = 2500;                       %Amount of particles
-PlotPF = 1;                     %1 = plot the PF for debugging & testing
+PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
 locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
@@ -560,16 +560,16 @@ for index = d:testDBSize
 end
 
 %HOLD THE PREVIOUS VALUE IF P=0
-Resultnew(1) = Result(1);
+ResultSC(1) = Result(1);
 for index = 2:testDBSize
     if P(index) == 1
-        Resultnew(index) = Result(index);
+        ResultSC(index) = Result(index);
     else
-        Resultnew(index) = Resultnew(index-1);
+        ResultSC(index) = ResultSC(index-1);
     end
 end
 if PlotOn
-    plot(Resultnew,'r')
+    plot(ResultSC,'r')
     %plot(Resultnew-Result,'g')
     hold off
     title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
@@ -596,7 +596,7 @@ end
 
 %%
 %To delete/fix
-FeatureDetectNoiseStDev = max(range(confusionMatrix))/2;
+%FeatureDetectNoiseStDev = 0.0775;%max(range(confusionMatrix))/2;
 
 
 
@@ -613,11 +613,14 @@ if PlotPF
     vPF = VideoWriter('data/VideoPF.avi');
     open(vPF)
 end
+w=ones(N,1)./N;
 ResultPF = zeros(1,testDBSize);
 for index = 1:testDBSize
     
+    %Check this!
+    FeatureDetectNoiseStDev = sqrt(var(confusionMatrix(:,index)));
+    
     if ~any(index == TestToDelete)
-
         %Create weights using the normal distribution pdf & normalize
         w=ones(N,1)./N;
         w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
@@ -698,7 +701,9 @@ for index = 1:testDBSize
     end
     storedParticles(:,index) = particles;
 end
-close(vPF);
+if PlotPF
+    close(vPF);
+end
 if PlotOn
     figure;
     plot(Result,'g')
@@ -713,54 +718,56 @@ end
 
 %%
 %-----------------------------Calculate the error--------------------------
-%Find the calculated test image coordinates
-switch locationMode
-    case 1
-        % No post-processing
-        testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
-        description = 'no post-processing';
-    case 2
-        % Spatial Continuity filter
-        testLocations = [TrainingCoordinates(Resultnew(1,:),1),TrainingCoordinates(Resultnew(1,:),2)];
-        description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
-    case 3
-        % Particle Filter
-        testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
-        description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)];
-end
+for i = 1:3
+    %Find the calculated test image coordinates
+    switch i %locationMode
+        case 1
+            % No post-processing
+            testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
+            description = 'no post-processing';
+        case 2
+            % Spatial Continuity filter
+            testLocations = [TrainingCoordinates(ResultSC(1,:),1),TrainingCoordinates(ResultSC(1,:),2)];
+            description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
+        case 3
+            % Particle Filter
+            testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
+            description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev)];
+    end
 
-% Calc the amount of meter per pixel on the floorplan
-MeterPixel = widthRoom68/(506-480);
+    % Calc the amount of meter per pixel on the floorplan
+    MeterPixel = widthRoom68/(506-480);
 
-%testCoordinates = Groundtruth
-error = TestCoordinates - testLocations;
-errorDistance = sqrt(error(:,1).^2 + error(:,2).^2).*MeterPixel;
-if PlotOn
-    figure;
-    plot(errorDistance)
-    title('Error');
-    xlabel('Test Image');
-    ylabel('Error [meter]');
-    
-    figure;
-    histogram(errorDistance)
-    title('Histogram of the error');
-    xlabel('Error [meter]');
-    ylabel('Amount of frames');
+    %testCoordinates = Groundtruth
+    error = TestCoordinates - testLocations;
+    errorDistance = sqrt(error(:,1).^2 + error(:,2).^2).*MeterPixel;
+    if PlotOn
+        figure;
+        plot(errorDistance)
+        title(['Error ',description]);
+        xlabel('Test Image');
+        ylabel('Error [meter]');
+
+        figure;
+        histogram(errorDistance)
+        title(['Histogram of the error ',description]);
+        xlabel('Error [meter]');
+        ylabel('Amount of frames');
+    end
+    %errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
+    errorDistMean = sum(errorDistance)/size(errorDistance,1);
+    errorDistMax = max(errorDistance);
+    fprintf('\n--------------------------RESULT---------------------------------\n');
+    fprintf('--INPUT:\n');
+    fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
+    fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
+    fprintf('The ConfMatCNN is %.4f, ConfMatObj is %.4f, ConfMatScene is %.4f\n',ConfMatCNN,ConfMatObj,ConfMatScene);
+    fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
+    fprintf('\n--OUTPUT:\n');
+    fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',size(TrainingToDelete,2),size(TestToDelete,2));
+    fprintf('The mean of the error is %.2f meter, and the maximal error is %.2f meter.\n',errorDistMean,errorDistMax);
+    fprintf('-----------------------------------------------------------------\n\n');
 end
-%errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
-errorDistMean = sum(errorDistance)/size(errorDistance,1);
-errorDistMax = max(errorDistance);
-fprintf('\n--------------------------RESULT---------------------------------\n');
-fprintf('--INPUT:\n');
-fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
-fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
-fprintf('The ConfMatCNN is %.4f, ConfMatObj is %.4f, ConfMatScene is %.4f\n',ConfMatCNN,ConfMatObj,ConfMatScene);
-fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
-fprintf('\n--OUTPUT:\n');
-fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',trainingDBSize_original-trainingDBSize,testDBSize_original-testDBSize);
-fprintf('The mean of the error is %.2f meter, and the maximal error is %.2f meter.\n',errorDistMean,errorDistMax);
-fprintf('-----------------------------------------------------------------\n\n');
 %--------------------------------------------------------------------------
 
 %%
@@ -805,8 +812,8 @@ if PlotRoute
             title(['(Original method) Training image: ',num2str(Result(i))])
         elseif locationMode == 2
             subplot(plotHeight,3,3)
-            imshow(trainingImg(:,:,:,Resultnew(i)));
-            title(['(Sequential Filter method) Training image: ',num2str(Resultnew(i))])
+            imshow(trainingImg(:,:,:,ResultSC(i)));
+            title(['(Sequential Filter method) Training image: ',num2str(ResultSC(i))])
         elseif locationMode == 3
             subplot(plotHeight,3,3)
             imshow(trainingImg(:,:,:,ResultPF(i)));
