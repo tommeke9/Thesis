@@ -8,7 +8,7 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %Run setup before! to compile matconvnet
 %%
 %------------------------VARIABLES-----------------------------------------
-PlotOn = 1; %Plot Debugging figures
+PlotOn = 0; %Plot Debugging figures
 
 %WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
 testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
@@ -54,7 +54,7 @@ RandPercentage = 0.1;           %Percentage of the particles to be randomized (1
 N = 2500;                       %Amount of particles
 PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
-locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
 widthRoom68 = 3; %used to calculate the error
 
@@ -547,27 +547,28 @@ if PlotOn
 end
 %%
 %------------------------Spatial Continuity check--------------------------
-d = 2; % Length of evaluation window
-epsilon = 3;
+d = 40;%2 % Length of evaluation window
+epsilon = 50;%3
 for index = d:testDBSize
     P(index) = 1;
     for u = index-d+2:index
-        if abs(ResultValue(u-1)-ResultValue(u)) > epsilon
+        if abs(Result(u-1)-Result(u)) > epsilon
             P(index) = 0;
             break;
         end
     end
 end
 
-%HOLD THE PREVIOUS VALUE IF P=0
+%Only motion model if P=0
 ResultSC(1) = Result(1);
 for index = 2:testDBSize
     if P(index) == 1
         ResultSC(index) = Result(index);
     else
-        ResultSC(index) = ResultSC(index-1);
+        ResultSC(index) = ResultSC(index-1)+1;
     end
 end
+ResultSC(ResultSC>trainingDBSize) = trainingDBSize;
 if PlotOn
     plot(ResultSC,'r')
     %plot(Resultnew-Result,'g')
@@ -757,6 +758,8 @@ for i = 1:3
     %errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
     errorDistMean = sum(errorDistance)/size(errorDistance,1);
     errorDistMax = max(errorDistance);
+    errorDistMedian = median(errorDistance);
+    errorPercentage = 100*size(find(errorDistance<2),1)/testDBSize;
     fprintf('\n--------------------------RESULT---------------------------------\n');
     fprintf('--INPUT:\n');
     fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
@@ -765,7 +768,8 @@ for i = 1:3
     fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
     fprintf('\n--OUTPUT:\n');
     fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',size(TrainingToDelete,2),size(TestToDelete,2));
-    fprintf('The mean of the error is %.2f meter, and the maximal error is %.2f meter.\n',errorDistMean,errorDistMax);
+    fprintf('The mean of the error is %.4f meter, the median is %.4f meter and the maximal error is %.2f meter.\n',errorDistMean,errorDistMedian,errorDistMax);
+    fprintf('In %.2f%% of the frames, the error is below 2 meter.\n',errorPercentage);
     fprintf('-----------------------------------------------------------------\n\n');
 end
 %--------------------------------------------------------------------------
@@ -777,6 +781,21 @@ if locationMode == 3
     plotHeight = 2;
 end
 if PlotRoute
+    switch locationMode
+        case 1
+            % No post-processing
+            testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
+            description = 'no post-processing';
+        case 2
+            % Spatial Continuity filter
+            testLocations = [TrainingCoordinates(ResultSC(1,:),1),TrainingCoordinates(ResultSC(1,:),2)];
+            description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
+        case 3
+            % Particle Filter
+            testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
+            description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev)];
+    end
+    
     figure('units','normalized','outerposition',[0 0 1 1]);
     [X,map] = imread('floorplan.gif');
     if ~isempty(map)
@@ -820,16 +839,25 @@ if PlotRoute
             title(['(PF method) Training image: ',num2str(ResultPF(i))])
             
             subplot(plotHeight,3,4:6)
-            %histogram(storedParticles(:,i));
-            scatter(storedParticles(:,i),ones(size(storedParticles(:,i),1),1));
+            histogram(storedParticles(:,i),round(trainingDBSize/10));
             hold on
-            line([mode(storedParticles(:,i)) mode(storedParticles(:,i))], [0.5 1.5], 'color','r','linewidth',2);
-            hold off
             axis([0 trainingDBSize 0 inf])
-            %title('Particles histogram')
-            title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev),'; FeatureDetectNoiseStDev = ',num2str(FeatureDetectNoiseStDev)]);
+            title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev)]);
             xlabel('Training Image');
-            %ylabel('Amount of particles');
+            ylabel('Amount of particles');
+            line([ResultPF(i) ResultPF(i)], [0 1000], 'color','r');
+            hold off
+        
+        
+%             scatter(storedParticles(:,i),ones(size(storedParticles(:,i),1),1));
+%             hold on
+%             line([mode(storedParticles(:,i)) mode(storedParticles(:,i))], [0.5 1.5], 'color','r','linewidth',2);
+%             hold off
+%             axis([0 trainingDBSize 0 inf])
+%             %title('Particles histogram')
+%             title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev),'; FeatureDetectNoiseStDev = ',num2str(FeatureDetectNoiseStDev)]);
+%             xlabel('Training Image');
+%             %ylabel('Amount of particles');
         end
         
         frame = getframe(gcf);
