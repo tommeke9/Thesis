@@ -39,12 +39,16 @@ calcObjRecTest = 0;
 RunConfObjects = 0;
 n_labels_max = 5; %Max amount of recognized objects per box
 
-ConfMatCNN = 0.750; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
-ConfMatObj = 0.125; % 
-ConfMatScene = 0.125;
+ConfMatCNN = 0.600; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
+ConfMatObj = 0.100; % 
+ConfMatScene = 0.300;
 if ConfMatCNN+ConfMatObj+ConfMatScene ~=1
     error('Check the Confusion Matrix parameters.');
 end
+
+%Spatial Continuity check
+d = 40; % Length of evaluation window
+epsilon = 50;% maximal jumps of trainingframes in this evaluation window
 
 %Particle Filter
 %FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
@@ -56,8 +60,9 @@ PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
 locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
+%Error calculation
 widthRoom68 = 3; %used to calculate the error
-
+RunError = 0; %1 = recalc the error for every method; 0 = load this error
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN
@@ -73,15 +78,33 @@ end
 disp('loading ESAT DB')
 switch testDB
     case 1
-        T = load('test.mat');
+        T = load('data/ESAT-DB/mat/test.mat');
         TestCoordinates = makeTestCoordinates();
+        datapath = 'data/test/1/';
     case 2
-        T = load('test2.mat');
+        T = load('data/ESAT-DB/mat/test2.mat');
         TestCoordinates = makeTest2Coordinates();
+        datapath = 'data/test/2/';
+    case 3
+        T = load('data/ESAT-DB/mat/test3.mat');
+        TestCoordinates = makeTest3Coordinates();
+        datapath = 'data/test/3/';
+    case 4
+        T = load('data/ESAT-DB/mat/test4.mat');
+        TestCoordinates = makeTest4Coordinates();
+        datapath = 'data/test/4/';
+    case 5
+        T = load('data/ESAT-DB/mat/test5.mat');
+        TestCoordinates = makeTest5Coordinates();
+        datapath = 'data/test/5/';
+    case 6
+        T = load('data/ESAT-DB/mat/test6.mat');
+        TestCoordinates = makeTest6Coordinates();
+        datapath = 'data/test/6/';
 end
 testImg_original = T.img;
 clear T
-T = load('training.mat');
+T = load('data/ESAT-DB/mat/training.mat');
 trainingImg_original = T.img;
 clear T
 disp('DB loaded')
@@ -170,10 +193,10 @@ if RunCNN
             fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize_original);
         end
     end
-    if exist('data/lastFCesatDB.mat', 'file')
-        save('data/lastFCesatDB.mat','lastFCtraining','-append');
+    if exist([datapath,'lastFCesatDB.mat'], 'file')
+        save([datapath,'lastFCesatDB.mat'],'lastFCtraining','-append');
     else
-        save('data/lastFCesatDB.mat','lastFCtraining');
+        save([datapath,'lastFCesatDB.mat'],'lastFCtraining');
     end
     clear lastFCtemp index res
     
@@ -188,17 +211,17 @@ if RunCNN
             fprintf('test %d ~ %d of %d \n',index-99,index,testDBSize_original);
         end
     end
-    if exist('data/lastFCesatDB.mat', 'file')
-        save('data/lastFCesatDB.mat','lastFCtest','-append');
+    if exist([datapath,'lastFCesatDB.mat'], 'file')
+        save([datapath,'lastFCesatDB.mat'],'lastFCtest','-append');
     else
-        save('data/lastFCesatDB.mat','lastFCtest');
+        save([datapath,'lastFCesatDB.mat'],'lastFCtest');
     end
     clear lastFCtemp res
     disp('CNN finished')
     %--------------------------------------------------------------------------
 else
     disp('CNN not recalculated')
-    load('lastFCesatDB.mat');
+    load([datapath,'lastFCesatDB.mat']);
 end
 
 lastFCtraining_original = lastFCtraining;
@@ -214,7 +237,7 @@ lastFCtraining(:,TrainingToDelete(:)) = [];
 %ConfusionMatrix and used for the localisation.
 
 disp('Load scenes & SVM')
-load('ESATsvm.mat');
+load('data/ESATsvm.mat');
 disp('Scenes & SVM loaded')
 
 %Retrain or Load the TrainingDB
@@ -227,15 +250,15 @@ if calcScenesTrainingDB
         end
     end
     
-    if exist('data/ScenesEsatDB.mat', 'file')
-        save('data/ScenesEsatDB.mat','scoresTraining','-append');
+    if exist([datapath,'ScenesEsatDB.mat'], 'file')
+        save([datapath,'ScenesEsatDB.mat'],'scoresTraining','-append');
     else
-        save('data/ScenesEsatDB.mat','scoresTraining');
+        save([datapath,'ScenesEsatDB.mat'],'scoresTraining');
     end
     disp('Scenes saved for the trainingDB')
 else
     disp('Scenes for the TrainingDB not recalculated')
-    load('data/ScenesEsatDB.mat','scoresTraining');
+    load([datapath,'ScenesEsatDB.mat'],'scoresTraining');
 end
 scoresTraining(TrainingToDelete(:),:) = [];
 
@@ -252,15 +275,15 @@ if calcScenesTestDB
         [bestScoreScene(index), bestScene(index)] = max(scoresTest(index,:)) ;
     end
     
-    if exist('data/ScenesEsatDB.mat', 'file')
-        save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene','-append');
+    if exist([datapath,'ScenesEsatDB.mat'], 'file')
+        save([datapath,'ScenesEsatDB.mat'],'scoresTest','bestScoreScene','bestScene','-append');
     else
-        save('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene');
+        save([datapath,'ScenesEsatDB.mat'],'scoresTest','bestScoreScene','bestScene');
     end
     disp('Scenes saved for the testDB')
 else 
     disp('Scenes for the testDB not recalculated')
-    load('data/ScenesEsatDB.mat','scoresTest','bestScoreScene','bestScene');
+    load([datapath,'ScenesEsatDB.mat'],'scoresTest','bestScoreScene','bestScene');
 end
 % scoresTest(TestToDelete(:),:) = [];
 % bestScoreScene(TestToDelete(:)) = [];
@@ -278,16 +301,17 @@ if RunConfScene
 %                 fprintf('Scene Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
 %         end
     end
-    if exist('data/confMatrix.mat', 'file')
-        save('data/confMatrix.mat','confusionMatrixSceneRecogn','-append');
+    if exist([datapath,'confMatrix.mat'], 'file')
+        save([datapath,'confMatrix.mat'],'confusionMatrixSceneRecogn','-append');
     else
-        save('data/confMatrix.mat','confusionMatrixSceneRecogn');
+        save([datapath,'confMatrix.mat'],'confusionMatrixSceneRecogn');
     end
     disp('ConfusionMatrix of Scenes saved')
 else
     disp('ConfusionMatrix of Scenes not recalculated')
-    load('confMatrix.mat','confusionMatrixSceneRecogn');
+    load([datapath,'confMatrix.mat'],'confusionMatrixSceneRecogn');
 end
+confusionMatrixSceneRecogn = (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn));
 
 if PlotOn
     figure;
@@ -310,15 +334,15 @@ if calcObjLocTraining
     delete(gcp('nocreate'))
     trainingObjectLocation = calc_object_locations( n_box_max, trainingImg_original );
     
-    if exist('data/Objects.mat', 'file')
-        save('data/Objects.mat','trainingObjectLocation','-append');
+    if exist([datapath,'Objects.mat'], 'file')
+        save([datapath,'Objects.mat'],'trainingObjectLocation','-append');
     else
-        save('data/Objects.mat','trainingObjectLocation');
+        save([datapath,'Objects.mat'],'trainingObjectLocation');
     end
     disp('Object locations saved for the trainingDB')
 else
     disp('Object locations for the trainingDB not recalculated')
-    load('data/Objects.mat','trainingObjectLocation');
+    load([datapath,'Objects.mat'],'trainingObjectLocation');
 end
 
 if calcObjLocTest
@@ -326,15 +350,15 @@ if calcObjLocTest
     delete(gcp('nocreate'))
     testObjectLocation = calc_object_locations( n_box_max, testImg_original );
     
-    if exist('data/Objects.mat', 'file')
-        save('data/Objects.mat','testObjectLocation','-append');
+    if exist([datapath,'Objects.mat'], 'file')
+        save([datapath,'Objects.mat'],'testObjectLocation','-append');
     else
-        save('data/Objects.mat','testObjectLocation');
+        save([datapath,'Objects.mat'],'testObjectLocation');
     end
     disp('Object locations saved for the testDB')
 else
     disp('Object locations for the testDB not recalculated')
-    load('data/Objects.mat','testObjectLocation');
+    load([datapath,'Objects.mat'],'testObjectLocation');
 end
 
 
@@ -352,15 +376,15 @@ if calcObjRecTraining
     objectNumber_training = squeeze(trainingObjectRecognition(1,1,:,:)) ; % objectNumber_training(Frame_number,img_Number)
     objectName_training = reshape(net.meta.classes.description(objectNumber_training(:)),size(objectNumber_training));
    
-    if exist('data/Objects.mat', 'file')
-        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training','-append');
+    if exist([datapath,'Objects.mat'], 'file')
+        save([datapath,'Objects.mat'],'trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training','-append');
     else
-        save('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training');
+        save([datapath,'Objects.mat'],'trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training');
     end
     disp('Object recognition saved for the trainingDB')
 else
     disp('Object recognition for the trainingDB not recalculated')
-    load('data/Objects.mat','trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training');
+    load([datapath,'Objects.mat'],'trainingObjectRecognition','bestScoreObject_training','objectNumber_training','objectName_training');
 end
 
 if calcObjRecTest
@@ -376,15 +400,15 @@ if calcObjRecTest
     objectNumber_test = squeeze(testObjectRecognition(1,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
     objectName_test = reshape(net.meta.classes.description(objectNumber_test(:)),size(objectNumber_test));
     
-    if exist('data/Objects.mat', 'file')
-        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test','-append');
+    if exist([datapath,'Objects.mat'], 'file')
+        save([datapath,'Objects.mat'],'testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test','-append');
     else
-        save('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test');
+        save([datapath,'Objects.mat'],'testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test');
     end
     disp('Object recognition saved for the testDB')
 else
     disp('Object recognition for the testDB not recalculated')
-    load('data/Objects.mat','testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test');
+    load([datapath,'Objects.mat'],'testObjectRecognition','bestScoreObject_test','objectNumber_test','objectName_test');
 end
 
 
@@ -429,15 +453,16 @@ if RunConfObjects
 %         end    
     end
 
-    if exist('data/confMatrix.mat', 'file')
-        save('data/confMatrix.mat','confusionMatrixObjects','-append');
+    if exist([datapath,'confMatrix.mat'], 'file')
+        save([datapath,'confMatrix.mat'],'confusionMatrixObjects','-append');
     else
-        save('data/confMatrix.mat','confusionMatrixObjects');
+        save([datapath,'confMatrix.mat'],'confusionMatrixObjects');
     end
 else
     disp('ConfusionMatrix for the Object Recognition not recalculated')
-    load('confMatrix.mat','confusionMatrixObjects');
+    load([datapath,'confMatrix.mat'],'confusionMatrixObjects');
 end
+confusionMatrixObjects = (confusionMatrixObjects - min(min(confusionMatrixObjects)))./max(max(confusionMatrixObjects));
 
 if PlotOn
     figure;
@@ -461,15 +486,16 @@ if RunConfCNN
 %                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
 %         end
     end
-    if exist('data/confMatrix.mat', 'file')
-        save('data/confMatrix.mat','confusionMatrixCNNFeat','-append');
+    if exist([datapath,'confMatrix.mat'], 'file')
+        save([datapath,'confMatrix.mat'],'confusionMatrixCNNFeat','-append');
     else
-        save('data/confMatrix.mat','confusionMatrixCNNFeat');
+        save([datapath,'confMatrix.mat'],'confusionMatrixCNNFeat');
     end
 else
     disp('ConfusionMatrix CNN features not recalculated')
-    load('confMatrix.mat','confusionMatrixCNNFeat');
+    load([datapath,'confMatrix.mat'],'confusionMatrixCNNFeat');
 end
+confusionMatrixCNNFeat = (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat));
 
 if PlotOn
     figure;
