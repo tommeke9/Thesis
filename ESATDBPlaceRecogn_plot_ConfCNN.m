@@ -11,7 +11,7 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 PlotOn = 0; %Plot Debugging figures
 
 %WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
-testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
+testDB = 2; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 13;
 
@@ -62,7 +62,7 @@ locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filte
 
 %Error calculation
 widthRoom68 = 3; %used to calculate the error
-RunError = 0; %1 = recalc the error for every method; 0 = load this error
+RunError = 1; %1 = recalc the error for every method; 0 = load this error
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN
@@ -938,7 +938,7 @@ if PlotRoute
     end
     %imshow(Im)
     %hold on;
-    v = VideoWriter('data/newfile.avi');
+    v = VideoWriter([datapath,'route.avi']);
     open(v)
     for i=1:testDBSize
         subplot(plotHeight,3,1)

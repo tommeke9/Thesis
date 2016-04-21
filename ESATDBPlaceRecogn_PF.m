@@ -10,8 +10,8 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %------------------------VARIABLES-----------------------------------------
 PlotOn = 0; %Plot Debugging figures
 
-%WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
-testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
+%WARNING: If new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
+testDB = 6; %Select the testDB
 
 lastFClayer = 13;
 
@@ -20,6 +20,8 @@ edgeThresholdTraining = 0;%0.05;
 edgeThresholdTest = 0.075;%0.05;
 
 RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
+RunCNN_training = 0; %1 = run the CNN for the training (only with RunCNN = 1)
+
 RunConfCNN = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
 PlotRoute = 0;  %1 = plot the route on a floorplan
 
@@ -62,7 +64,6 @@ locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filte
 
 %Error calculation
 widthRoom68 = 3; %used to calculate the error
-RunError = 0; %1 = recalc the error for every method; 0 = load this error
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN
@@ -164,12 +165,14 @@ if RunCNN
     % ------------load and preprocess the images---------------------------------
     disp('Normalization')
     imSize = net.meta.normalization.imageSize(1:2);
-    for index = 1:trainingDBSize_original
-        im_temp = single(trainingImg_original(:,:,:,index)) ; % note: 0-255 range
-        im_temp = imresize(im_temp, imSize) ;
-        trainingImgNorm(:,:,:,index) = im_temp - averageImage ;
+    if RunCNN_training
+        for index = 1:trainingDBSize_original
+            im_temp = single(trainingImg_original(:,:,:,index)) ; % note: 0-255 range
+            im_temp = imresize(im_temp, imSize) ;
+            trainingImgNorm(:,:,:,index) = im_temp - averageImage ;
+        end
+        clear im_temp index
     end
-    clear im_temp index
     for index = 1:testDBSize_original
         im_temp = single(testImg_original(:,:,:,index)) ; % note: 0-255 range
         im_temp = imresize(im_temp, imSize) ;
@@ -183,23 +186,27 @@ if RunCNN
     % ---------------------------------Run CNN---------------------------------
     disp('Run CNN')
     delete(gcp('nocreate'))
-    for index = 1:trainingDBSize_original
-        res = vl_simplenn(net, trainingImgNorm(:,:,:,index)) ;
-        
-        lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
-        lastFCtraining(:,index) = lastFCtemp(:);
-        
-        if rem(index,100)==0
-            fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize_original);
+    if RunCNN_training
+        for index = 1:trainingDBSize_original
+            res = vl_simplenn(net, trainingImgNorm(:,:,:,index)) ;
+
+            lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
+            lastFCtraining(:,index) = lastFCtemp(:);
+
+            if rem(index,100)==0
+                fprintf('training %d ~ %d of %d \n',index-99,index,trainingDBSize_original);
+            end
         end
-    end
-    if exist([datapath,'lastFCesatDB.mat'], 'file')
-        save([datapath,'lastFCesatDB.mat'],'lastFCtraining','-append');
+        if exist([datapath,'lastFCesatDB.mat'], 'file')
+            save([datapath,'lastFCesatDB.mat'],'lastFCtraining','-append');
+        else
+            save([datapath,'lastFCesatDB.mat'],'lastFCtraining');
+        end
+        clear lastFCtemp index res
     else
-        save([datapath,'lastFCesatDB.mat'],'lastFCtraining');
+        disp('Only CNN of the testDB recalculated')
+        load([datapath,'lastFCesatDB.mat'],'lastFCtraining');
     end
-    clear lastFCtemp index res
-    
     %Same for testDB
     for index = 1:testDBSize_original
         res = vl_simplenn(net, testImgNorm(:,:,:,index)) ;
@@ -547,11 +554,11 @@ disp('Start combining the confusion matrices')
 
 %confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + (1-ConfMatCNN) .* confusionMatrixSceneRecogn;
 %confusionMatrix = confusionMatrixCNNFeat .* confusionMatrixSceneRecogn;
-confusionMatrix = ConfMatCNN .* (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat)) + ConfMatScene .* (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn)) + ConfMatObj .* (confusionMatrixObjects - min(min(confusionMatrixObjects)))./max(max(confusionMatrixObjects));
+confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + ConfMatScene .* confusionMatrixSceneRecogn + ConfMatObj .* confusionMatrixObjects;
 if PlotOn
     figure;
     imagesc(confusionMatrix)
-    title('Combined Confusion Matrix')
+    title(['Combined Confusion Matrix with ConfMatCNN=',num2str(ConfMatCNN),'; ConfMatScene=',num2str(ConfMatScene),'; ConfMatObj=',num2str(ConfMatObj)])
     ylabel('Training Image')
     xlabel('Test Image')
 end
@@ -562,9 +569,6 @@ end
 disp('Search lowest difference')
 parfor index = 1:testDBSize
     [ResultValue(index),Result(index)] = min(confusionMatrix(:,index));
-%     if rem(index,100)==0
-%             fprintf('%d ~ %d of %d \n',index-99,index,testDBSize);
-%     end
 end
 if PlotOn
     figure;
@@ -573,8 +577,6 @@ if PlotOn
 end
 %%
 %------------------------Spatial Continuity check--------------------------
-d = 40;%2 % Length of evaluation window
-epsilon = 50;%3
 for index = d:testDBSize
     P(index) = 1;
     for u = index-d+2:index
@@ -637,7 +639,7 @@ particles = round(rand(N,1)*(trainingDBSize-1)+1);
 
 if PlotPF
     figure('units','normalized','outerposition',[0 0 1 1]);
-    vPF = VideoWriter('data/VideoPF.avi');
+    vPF = VideoWriter([datapath,'VideoPF.avi']);
     open(vPF)
 end
 w=ones(N,1)./N;
@@ -830,7 +832,7 @@ if PlotRoute
     end
     %imshow(Im)
     %hold on;
-    v = VideoWriter('data/newfile.avi');
+    v = VideoWriter([datapath,'route.avi']);
     open(v)
     for i=1:testDBSize
         subplot(plotHeight,3,1)
