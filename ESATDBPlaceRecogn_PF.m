@@ -23,7 +23,7 @@ RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
 RunCNN_training = 0; %1 = run the CNN for the training (only with RunCNN = 1)
 
 RunConfCNN = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
-PlotRoute = 0;  %1 = plot the route on a floorplan
+PlotRoute = 1;  %1 = plot the route on a floorplan
 
 %Scene Recognition
 calcScenesTrainingDB = 0;   %1 if recalc of the scenes for the trainingDB is necessary.

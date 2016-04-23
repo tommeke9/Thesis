@@ -11,7 +11,7 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 PlotOn = 0; %Plot Debugging figures
 
 %WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
-testDB = 2; %Select the testDB: 1 (same day) or 2 (after ~2 months)
+testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 13;
 
