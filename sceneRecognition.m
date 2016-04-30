@@ -28,7 +28,7 @@ if ValidationPercentage+TestPercentage+TrainPercentage~=100
 end
 
 disp('loading dataset')
-load('newDB.mat','images','sceneTypes')
+load('data/newDB.mat','images','sceneTypes')
 uniqueScenes = unique(sceneTypes);
 [amountOfScenes,~] = size(uniqueScenes);
 disp('dataset loaded')
@@ -115,13 +115,13 @@ if RunCNN
         %whos('lastFC')
         %disp(num2str(index),'/',num2str(dbSize))
     end
-    save('data/ESATlastFC.mat','lastFC');
+    save('data/scene/ESATlastFC.mat','lastFC');
     clear im_ im_temp
     disp('CNN finished')
     %--------------------------------------------------------------------------
 else
     disp('CNN not recalculated')
-    load('ESATlastFC.mat');
+    load('data/scene/ESATlastFC.mat');
 end
 
 
@@ -348,12 +348,12 @@ if RunSVMTraining
     %---------------------------------------------------------------------------------------------------
     %---------------------------------------------------------------------------------------------------
     
-    save('data/ESATsvm.mat','W','B','uniqueScenes');
+    save('data/scene/ESATsvm.mat','W','B','uniqueScenes');
     disp('Training finished')
     %--------------------------------------------------------------------------
 else
     disp('SVM not recalculated')
-    load('ESATsvm.mat');
+    load('data/scene/ESATsvm.mat');
 end
 
 %scatter(C,performance);

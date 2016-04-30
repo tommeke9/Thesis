@@ -3,7 +3,7 @@ close all
 clc
 
 calcScenes = 1; %1 if recalc of the scenes for the testDB is necessary.
-
+lastFClayer = 31;
 
 
 disp('loading ESAT DB')
@@ -23,10 +23,10 @@ if calcScenes
     run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
 
     % load the pre-trained CNN
-    net = load('data/cnns/imagenet-vgg-verydeep-16.mat') ; %TO BE CHANGED TO VGG Places2
+    net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ; %TO BE CHANGED TO VGG Places2
 
-    load('ESATsvm.mat');
-    lastFClayer = 31;
+    load('data/scene/ESATsvm.mat');
+    
     for index = 1:testDBSize
             %normalize
             im_temp = single(testImg(:,:,:,index)) ; % note: 0-255 range

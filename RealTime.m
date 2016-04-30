@@ -63,7 +63,7 @@ RandPercentage = 0.1;           %Percentage of the particles to be randomized (1
 N = 2500;                       %Amount of particles
 PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
-locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN

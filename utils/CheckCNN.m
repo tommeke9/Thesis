@@ -7,7 +7,7 @@ addpath data deps/matconvnet-1.0-beta16
 %Run setup before! to compile matconvnet
 %%
 %------------------------VARIABLES-----------------------------------------
-imDB = 1;
+imDB = 3;
 lastFClayer = 13;
 net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ;
 

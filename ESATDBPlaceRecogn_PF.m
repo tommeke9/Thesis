@@ -244,7 +244,7 @@ lastFCtraining(:,TrainingToDelete(:)) = [];
 %ConfusionMatrix and used for the localisation.
 
 disp('Load scenes & SVM')
-load('data/ESATsvm.mat');
+load('data/scene/ESATsvm.mat');
 disp('Scenes & SVM loaded')
 
 %Retrain or Load the TrainingDB
