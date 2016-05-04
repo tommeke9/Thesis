@@ -1,3 +1,5 @@
+%Show the result of the object localisation and recognition for one image
+
 % check setup instructions in readme
 clear all
 close all
@@ -13,7 +15,7 @@ addpath deps/matconvnet-1.0-beta16
 n_box_max = 5; % Max amount of boxes to be used for object recognition
 
 %Object Recognition
-n_labels_max = 1; %Max amount of recognized objects per box
+n_labels_max = 5; %Max amount of recognized objects per box
 
 % load the pre-trained CNN
 %net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ;
@@ -31,8 +33,8 @@ testImg = imread(imgetfile);
 testObjectLocation = calc_object_locations( n_box_max, testImg );
 testObjectRecognition = calc_object_recognition( testImg, testObjectLocation, net, n_labels_max );
 
-bestScoreObject_test = squeeze(testObjectRecognition(1,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
-objectNumber_test = squeeze(testObjectRecognition(1,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
+bestScoreObject_test = squeeze(testObjectRecognition(:,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
+objectNumber_test = squeeze(testObjectRecognition(:,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
 objectName_test = reshape(net.meta.classes.description(objectNumber_test(:)),size(objectNumber_test));
     
 
@@ -46,8 +48,13 @@ colors = {'blue','black','green','red','cyan','magenta','yellow','white'};
 
 for r=1:size(testObjectLocation,1)
     rectangle('Position', testObjectLocation(r,[1:4],1), 'EdgeColor', colors{r}, 'LineWidth', 5); 
-    objectName_temp = strsplit(objectName_test{r},', ');
-    objectLabel{r,1} = ['{\color{',colors{r},'}',objectName_temp{1},'(',num2str(bestScoreObject_test(r),'%.2f'),')}; '];
+    description = [];
+    for i = 1:size(testObjectRecognition,1)
+        objectName_temp = strsplit(objectName_test{i,r},', ');
+        description = [description,objectName_temp{1},'(',num2str(bestScoreObject_test(i,r),'%.2f'),'); '];
+    end
+    
+    objectLabel{r,1} = ['{\color{',colors{r},'}',description,'} '];
 end
 title(objectLabel,'FontSize', 20)
 
