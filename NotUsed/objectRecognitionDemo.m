@@ -5,6 +5,8 @@ clear all
 close all
 clc
 
+Only_localisation = 1; %1 if show results of DeepProposals without localising
+
 %Setup MatConvNet
 delete(gcp('nocreate'))
 run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
@@ -42,20 +44,31 @@ testObjectLocation(:,[3 4],1)= testObjectLocation(:,[3 4],1)-testObjectLocation(
 %visualization of proposals    
 
 %show first n_box_show boxes in the image
-figure
-imshow(testImg);
-colors = {'blue','black','green','red','cyan','magenta','yellow','white'};
-
-for r=1:size(testObjectLocation,1)
-    rectangle('Position', testObjectLocation(r,[1:4],1), 'EdgeColor', colors{r}, 'LineWidth', 5); 
+%
+if Only_localisation
+    figure
+    imshow(testImg);
+    colors = {'blue','black','green','red','cyan','magenta','yellow','white'};
     description = [];
-    for i = 1:size(testObjectRecognition,1)
-        objectName_temp = strsplit(objectName_test{i,r},', ');
-        description = [description,objectName_temp{1},'(',num2str(bestScoreObject_test(i,r),'%.2f'),'); '];
+    for r=1:size(testObjectLocation,1)
+        rectangle('Position', testObjectLocation(r,[1:4],1), 'EdgeColor', colors{r}, 'LineWidth', 5); 
+        description = [description,'{\color{',colors{r},'}(',num2str(testObjectLocation(r,5),'%.2f'),')}; '];
     end
-    
-    objectLabel{r,1} = ['{\color{',colors{r},'}',description,'} '];
+    title(description,'FontSize', 20)
+else
+    figure
+    imshow(testImg);
+    colors = {'blue','black','green','red','cyan','magenta','yellow','white'};
+
+    for r=1:size(testObjectLocation,1)
+        rectangle('Position', testObjectLocation(r,[1:4],1), 'EdgeColor', colors{r}, 'LineWidth', 5); 
+        description = [];
+        for i = 1:size(testObjectRecognition,1)
+            objectName_temp = strsplit(objectName_test{i,r},', ');
+            description = [description,objectName_temp{1},'(',num2str(bestScoreObject_test(i,r),'%.2f'),'); '];
+        end
+
+        objectLabel{r,1} = ['{\color{',colors{r},'}',description,'} '];
+    end
+    title(objectLabel,'FontSize', 20)
 end
-title(objectLabel,'FontSize', 20)
-
-

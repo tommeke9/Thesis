@@ -52,7 +52,7 @@ mdl_contour = mdl_contour.model;
 %%%%%%%%%%%%%%%%%%%%%
 %read image
 %im1 = imread('cameraman.tif');
-im1 = imread('livingroom.jpg');
+im1 = imread(imgetfile);
 
 %compute feature maps
 x_map = compute_featmaps(im1, net_gpu, opts);
