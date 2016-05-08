@@ -8,10 +8,10 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %Run setup before! to compile matconvnet
 %%
 %------------------------VARIABLES-----------------------------------------
-PlotOn = 0; %Plot Debugging figures
+PlotOn = 1; %Plot Debugging figures
 
-%WARNING: If new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
-testDB = 6; %Select the testDB
+%WARNING: If completely new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
+testDB = 2; %Select the testDB
 
 lastFClayer = 13;
 
@@ -23,7 +23,7 @@ RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
 RunCNN_training = 0; %1 = run the CNN for the training (only with RunCNN = 1)
 
 RunConfCNN = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
-PlotRoute = 1;  %1 = plot the route on a floorplan
+PlotRoute = 0;  %1 = plot the route on a floorplan
 
 %Scene Recognition
 calcScenesTrainingDB = 0;   %1 if recalc of the scenes for the trainingDB is necessary.
@@ -322,10 +322,12 @@ confusionMatrixSceneRecogn = (confusionMatrixSceneRecogn - min(min(confusionMatr
 
 if PlotOn
     figure;
-    imagesc(confusionMatrixSceneRecogn)
-    title('Confusion Matrix Scene Recognition')
-    ylabel('Training Image')
-    xlabel('Test Image')
+    imagesc(confusionMatrixSceneRecogn(:,1:testDBSize))
+    axis equal tight
+    set(gca,'FontSize',20)
+    title('Confusion Matrix Scene Recognition','Interpreter','none','FontSize', 20)
+    ylabel('Training Image','Interpreter','none','FontSize', 20)
+    xlabel('Test Image','Interpreter','none','FontSize', 20)
 end
 %--------------------------------------------------------------------------
 
@@ -473,10 +475,12 @@ confusionMatrixObjects = (confusionMatrixObjects - min(min(confusionMatrixObject
 
 if PlotOn
     figure;
-    imagesc(confusionMatrixObjects)
-    title('Confusion Matrix Object recognition')
-    ylabel('Training Image')
-    xlabel('Test Image')
+    imagesc(confusionMatrixObjects(:,1:testDBSize))
+    axis equal tight
+    set(gca,'FontSize',20)
+    title('Confusion Matrix Object recognition','Interpreter','none','FontSize', 20)
+    ylabel('Training Image','Interpreter','none','FontSize', 20)
+    xlabel('Test Image','Interpreter','none','FontSize', 20)
 end
 %--------------------------------------------------------------------------
 
@@ -506,10 +510,12 @@ confusionMatrixCNNFeat = (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFea
 
 if PlotOn
     figure;
-    imagesc(confusionMatrixCNNFeat)
-    title('Confusion Matrix CNN features')
-    ylabel('Training Image')
-    xlabel('Test Image')
+    imagesc(confusionMatrixCNNFeat(:,1:testDBSize))
+    axis equal tight
+    set(gca,'FontSize',20)
+    title('Confusion Matrix CNN features','Interpreter','none','FontSize', 20)
+    ylabel('Training Image','Interpreter','none','FontSize', 20)
+    xlabel('Test Image','Interpreter','none','FontSize', 20)
 end
 %--------------------------------------------------------------------------
 
@@ -557,10 +563,12 @@ disp('Start combining the confusion matrices')
 confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + ConfMatScene .* confusionMatrixSceneRecogn + ConfMatObj .* confusionMatrixObjects;
 if PlotOn
     figure;
-    imagesc(confusionMatrix)
-    title(['Combined Confusion Matrix with ConfMatCNN=',num2str(ConfMatCNN),'; ConfMatScene=',num2str(ConfMatScene),'; ConfMatObj=',num2str(ConfMatObj)])
-    ylabel('Training Image')
-    xlabel('Test Image')
+    imagesc(confusionMatrix(:,1:testDBSize))
+    axis equal tight
+    set(gca,'FontSize',20)
+    title(['Combined Confusion Matrix with weights: CNN=',num2str(ConfMatCNN),'; Scene=',num2str(ConfMatScene),'; Obj=',num2str(ConfMatObj)],'Interpreter','none','FontSize', 20)
+    ylabel('Training Image','Interpreter','none','FontSize', 20)
+    xlabel('Test Image','Interpreter','none','FontSize', 20)
 end
 %--------------------------------------------------------------------------
 
