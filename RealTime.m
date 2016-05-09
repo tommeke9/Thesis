@@ -61,9 +61,9 @@ SpeedStDev = 2;                 %Standard deviation on calculated speed
 Speed = 1;                      %speed of walking
 RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
 N = 2500;                       %Amount of particles
-PlotPF = 0;                     %1 = plot the PF for debugging & testing
+PlotPF = 1;                     %1 = plot the PF for debugging & testing
 
-locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN
@@ -176,7 +176,7 @@ lastFCtraining(:,TrainingToDelete(:)) = [];
 %ConfusionMatrix and used for the localisation.
 
 disp('Load scenes & SVM')
-load('data/ESATsvm.mat');
+load('data/scene/ESATsvm.mat');
 disp('Scenes & SVM loaded')
 
 %Retrain or Load the TrainingDB
@@ -320,9 +320,11 @@ if PlotRoute
 end
 
 cam = webcam(1);
+elapsedTime = 1;
 
 for loopIndex = 1:500
     tic
+    fprintf('This frame took %.2f sec to compute, this is the same as %.2f trainingframes.\n ',elapsedTime,round(elapsedTime*29.97));
     testImg = snapshot(cam);
 
     %normalize
@@ -422,7 +424,7 @@ for loopIndex = 1:500
                 if loopIndex == 1
                     ResultSC = Result;
                 else
-                    ResultSC = ResultSC+1;
+                    ResultSC = ResultSC+round(elapsedTime*29.97);%trainingframerate = 29.97 ==> speed relative to trainingDB
                 end
                 
                 if ResultSC>trainingDBSize
@@ -498,9 +500,10 @@ for loopIndex = 1:500
 
 
             %motion model
+            Speed = round(elapsedTime*29.97);%trainingframerate = 29.97 ==> speed relative to trainingDB
             particles = round(particles + Speed + SpeedStDev*randn(size(particles)));
             particles(particles<=0)=1;
-            particles(particles>=trainingDBSize)=trainingDBSize;
+            particles(particles>trainingDBSize)=particles(particles>trainingDBSize)-trainingDBSize;%if particle is beyond the last trainingimage ==> start at the training 0
 
             if ~TestToDelete
                 %Randomize a specific percentage to avoid locked particles
@@ -513,7 +516,6 @@ for loopIndex = 1:500
             testLocation = [TrainingCoordinates(ResultPF,1),TrainingCoordinates(ResultPF,2)];
     end
     
-    toc
     
     %Show location on map
     if PlotRoute
@@ -557,4 +559,5 @@ for loopIndex = 1:500
 
         end
     end
+    elapsedTime = toc;
 end
