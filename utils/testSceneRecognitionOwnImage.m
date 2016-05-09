@@ -2,6 +2,7 @@ clear all
 close all
 clc
 
+OnlyBestScene = 0; %1 if only show the best scene
 
 %Setup MatConvNet
 run deps/matconvnet-1.0-beta16/matlab/vl_setupnn;
@@ -31,10 +32,15 @@ lastFCTest = lastFCTesttemp(:);
 
 for i = 1:size(uniqueScenes,1)
     scores(:,i) = W(:,i)'*lastFCTest + B(i) ;
+    description{i,1} = [uniqueScenes{i},', score ',num2str(scores(:,i),'%.2f')];
 end
 
 [bestScore, best] = max(scores) ;
 figure(1);
 clf;
 imagesc(testImage);
-title(sprintf('%s, score %.3f', uniqueScenes{best}, bestScore),'Interpreter','none','FontSize', 20);
+if OnlyBestScene
+    title(sprintf('%s, score %.3f', uniqueScenes{best}, bestScore),'Interpreter','none','FontSize', 20);
+else
+    title(description,'Interpreter','none','FontSize', 20);
+end

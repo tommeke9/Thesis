@@ -11,7 +11,7 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 PlotOn = 1; %Plot Debugging figures
 
 %WARNING: If completely new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
-testDB = 2; %Select the testDB
+testDB = 1; %Select the testDB
 
 lastFClayer = 13;
 
@@ -569,6 +569,24 @@ if PlotOn
     title(['Combined Confusion Matrix with weights: CNN=',num2str(ConfMatCNN),'; Scene=',num2str(ConfMatScene),'; Obj=',num2str(ConfMatObj)],'Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    
+    %Plot the histograms (not object-recogn)
+    figure;
+    histogram(confusionMatrixCNNFeat(:,1:testDBSize),'EdgeColor','none','Normalization','pdf')
+    hold on
+    histogram(confusionMatrixSceneRecogn(:,1:testDBSize),'EdgeColor','none','Normalization','pdf')
+    %histogram(confusionMatrixObjects(:,1:testDBSize),'EdgeColor','none','Normalization','probability')
+    histogram(confusionMatrix(:,1:testDBSize),'EdgeColor','none','Normalization','pdf')
+    legend('CNN Features','Scene Recognition','Combined')
+    hold off
+    set(gca,'FontSize',20)
+    title('Histogram of the confusion matrices','FontSize',20)
+
+    %Plot the histograms for object-recogn
+    figure;
+    histogram(confusionMatrixObjects(:,1:testDBSize).*n_box_max,'EdgeColor','none')
+    set(gca,'FontSize',20)
+    title('Histogram of the object-recognition confusion matrices','FontSize',20)
 end
 %--------------------------------------------------------------------------
 

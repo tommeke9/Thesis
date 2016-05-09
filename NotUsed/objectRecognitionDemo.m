@@ -5,7 +5,7 @@ clear all
 close all
 clc
 
-Only_localisation = 1; %1 if show results of DeepProposals without localising
+Only_localisation = 0; %1 if show results of DeepProposals without localising
 
 %Setup MatConvNet
 delete(gcp('nocreate'))
@@ -17,7 +17,7 @@ addpath deps/matconvnet-1.0-beta16
 n_box_max = 5; % Max amount of boxes to be used for object recognition
 
 %Object Recognition
-n_labels_max = 5; %Max amount of recognized objects per box
+n_labels_max = 1; %Max amount of recognized objects per box
 
 % load the pre-trained CNN
 %net = load('data/cnns/imagenet-matconvnet-vgg-m.mat') ;
@@ -35,8 +35,15 @@ testImg = imread(imgetfile);
 testObjectLocation = calc_object_locations( n_box_max, testImg );
 testObjectRecognition = calc_object_recognition( testImg, testObjectLocation, net, n_labels_max );
 
-bestScoreObject_test = squeeze(testObjectRecognition(:,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
-objectNumber_test = squeeze(testObjectRecognition(:,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
+
+if n_labels_max == 1
+    bestScoreObject_test(1,:) = squeeze(testObjectRecognition(:,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
+    objectNumber_test(1,:) = squeeze(testObjectRecognition(:,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
+else
+    bestScoreObject_test = squeeze(testObjectRecognition(:,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
+    objectNumber_test = squeeze(testObjectRecognition(:,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
+end
+
 objectName_test = reshape(net.meta.classes.description(objectNumber_test(:)),size(objectNumber_test));
     
 
