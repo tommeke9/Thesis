@@ -9,9 +9,10 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %%
 %------------------------VARIABLES-----------------------------------------
 PlotOn = 1; %Plot Debugging figures
+PlotMinConf = 1;%Show the lowest values on the confusion matrices
 
 %WARNING: If completely new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
-testDB = 1; %Select the testDB
+testDB = 2; %Select the testDB
 
 lastFClayer = 13;
 
@@ -328,6 +329,13 @@ if PlotOn
     title('Confusion Matrix Scene Recognition','Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    
+    if PlotMinConf
+        hold on;
+        [~,minimalValues] = min(confusionMatrixSceneRecogn(:,1:testDBSize));
+        scatter(1:testDBSize,minimalValues,4,'r','filled');
+        hold off
+    end
 end
 %--------------------------------------------------------------------------
 
@@ -481,6 +489,13 @@ if PlotOn
     title('Confusion Matrix Object recognition','Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    
+    if PlotMinConf
+        hold on;
+        [~,minimalValues] = min(confusionMatrixObjects(:,1:testDBSize));
+        scatter(1:testDBSize,minimalValues,4,'r','filled');
+        hold off
+    end
 end
 %--------------------------------------------------------------------------
 
@@ -516,6 +531,13 @@ if PlotOn
     title('Confusion Matrix CNN features','Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    
+    if PlotMinConf
+        hold on;
+        [~,minimalValues] = min(confusionMatrixCNNFeat(:,1:testDBSize));
+        scatter(1:testDBSize,minimalValues,4,'r','filled');
+        hold off
+    end
 end
 %--------------------------------------------------------------------------
 
@@ -569,6 +591,13 @@ if PlotOn
     title(['Combined Confusion Matrix with weights: CNN=',num2str(ConfMatCNN),'; Scene=',num2str(ConfMatScene),'; Obj=',num2str(ConfMatObj)],'Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    
+    if PlotMinConf
+        hold on;
+        [~,minimalValues] = min(confusionMatrix(:,1:testDBSize));
+        scatter(1:testDBSize,minimalValues,4,'r','filled');
+        hold off
+    end
     
     %Plot the histograms (not object-recogn)
     figure;
