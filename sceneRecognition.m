@@ -9,8 +9,8 @@ addpath data data/newDB deps/matconvnet-1.0-beta16
 %Run setup before! to compile matconvnet
 %Variables:
 lastFClayer = 13;
-RunCNN = 1; %1 = run the CNN, 0 = Load the CNN
-RunSVMTraining = 1; %1 = run the SVMtrain, 0 = Load the trained SVM
+RunCNN = 0; %1 = run the CNN, 0 = Load the CNN
+RunSVMTraining = 0; %1 = run the SVMtrain, 0 = Load the trained SVM
 RunROCTest = 1; %1 = show the ROC-curves, 0 = do not show the ROC-curves
 
 %C = [0.01,0.1:0.1:1.5,2:2:100,100:200:1000,1000:50000:1000000]; %All C's to Validate
@@ -428,7 +428,7 @@ if RunROCTest
             end
         end
         
-        [TPR(:,i),TNR(:,i)] = vl_roc(labels(:,i),scoresTest(:,i));
+        [TPR(:,i),TNR(:,i),Info(i)] = vl_roc(labels(:,i),scoresTest(:,i));
         
         %plot(1-TNR(:,i),TPR(:,i))
         
@@ -439,10 +439,10 @@ if RunROCTest
     figure;
     index = 1;
     for i = usefulScenes
-    subplot(3,4,index)
-    vl_roc(labels(:,i),scoresTest(:,i));
-    title(uniqueScenes{i})
-    index = index +1;
+        subplot(3,4,index)
+        vl_roc(labels(:,i),scoresTest(:,i));
+        title([uniqueScenes{i},' AUC = ',num2str(Info(i).auc,'%.3f')])
+        index = index +1;
     end
     
 end
