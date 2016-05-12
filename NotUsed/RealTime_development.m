@@ -1,3 +1,5 @@
+%Test of the RealTime function with known data (Test 1) for a slower framerate
+
 clear all
 close all
 clc
@@ -8,6 +10,9 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %Run setup before! to compile matconvnet
 %%
 %------------------------VARIABLES-----------------------------------------
+
+
+%WARNING: If new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
 
 datapath = 'data/test/realtime/';
 lastFClayer = 13;
@@ -49,8 +54,8 @@ if ConfMatCNN+ConfMatObj+ConfMatScene ~=1
 end
 
 %Spatial Continuity check
-d = 40; % Length of evaluation window (in frames @29,97fps)
-epsilon = 50;% maximal jumps of trainingframes in this evaluation window (in frames @29,97fps)
+d = 40; % Length of evaluation window
+epsilon = 50;% maximal jumps of trainingframes in this evaluation window
 
 %Particle Filter
 %FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
@@ -60,7 +65,7 @@ RandPercentage = 0.01;           %Percentage of the particles to be randomized (
 N = 2500;                       %Amount of particles
 PlotPF = 1;                     %1 = plot the PF for debugging & testing
 
-locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN
@@ -311,17 +316,27 @@ if PlotRoute
     if ~isempty(map)
         floorplan = ind2rgb(X,map);
     end
+%     subplot(plotHeight,3,1)
+%     imshow(floorplan)
+%     hold on;
 end
 
-cam = webcam(1);
+%cam = webcam(1);
 elapsedTime = 1;
 
+%--------------------------------------------------------
+disp('loading ESAT DB for the test')
+T = load('data/ESAT-DB/mat/test.mat');
+testImages = T.img;
+clear T
+disp('test-DB loaded')
+%--------------------------------------------------------
 for loopIndex = 1:500
     tic
     fprintf('This frame took %.2f sec to compute, this is the same as %.2f trainingframes.\n ',elapsedTime,round(elapsedTime*29.97));
-    testImg = snapshot(cam);
-    testImg = imresize(testImg,[NaN 256]);
-
+    %testImg = snapshot(cam);
+    testImg = testImages(:,:,:,loopIndex*Speed*round(elapsedTime*29.97));
+    
     %normalize
     im_temp = single(testImg) ; % note: 0-255 range
     im_temp = imresize(im_temp, net.meta.normalization.imageSize(1:2)) ;
@@ -560,4 +575,5 @@ for loopIndex = 1:500
         end
     end
     elapsedTime = toc;
+    drawnow;
 end
