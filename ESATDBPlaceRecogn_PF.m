@@ -12,7 +12,7 @@ PlotOn = 1; %Plot Debugging figures
 PlotMinConf = 1;%Show the lowest values on the confusion matrices
 
 %WARNING: If completely new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
-testDB = 2; %Select the testDB
+testDB = 1; %Select the testDB
 
 lastFClayer = 13;
 
@@ -329,6 +329,7 @@ if PlotOn
     title('Confusion Matrix Scene Recognition','Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    set(gca,'YDir','normal')
     
     if PlotMinConf
         hold on;
@@ -489,6 +490,7 @@ if PlotOn
     title('Confusion Matrix Object recognition','Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    set(gca,'YDir','normal')
     
     if PlotMinConf
         hold on;
@@ -531,6 +533,7 @@ if PlotOn
     title('Confusion Matrix CNN features','Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    set(gca,'YDir','normal')
     
     if PlotMinConf
         hold on;
@@ -591,6 +594,7 @@ if PlotOn
     title(['Combined Confusion Matrix with weights: CNN=',num2str(ConfMatCNN),'; Scene=',num2str(ConfMatScene),'; Obj=',num2str(ConfMatObj)],'Interpreter','none','FontSize', 20)
     ylabel('Training Image','Interpreter','none','FontSize', 20)
     xlabel('Test Image','Interpreter','none','FontSize', 20)
+    set(gca,'YDir','normal')
     
     if PlotMinConf
         hold on;
@@ -628,6 +632,14 @@ end
 if PlotOn
     figure;
     plot(Result,'g')
+    axis equal tight
+    title('Route without filtering','Interpreter','none','FontSize', 20)
+    xlabel('Test Image','Interpreter','none','FontSize', 20);
+    ylabel('Training Image','Interpreter','none','FontSize', 20);
+    set(gca,'FontSize',20)
+    
+    figure
+    plot(Result,'g')
     hold on
 end
 %%
@@ -656,9 +668,11 @@ if PlotOn
     plot(ResultSC,'r')
     %plot(Resultnew-Result,'g')
     hold off
-    title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)])
-    xlabel('test images')
-    ylabel('training images')
+    axis equal tight
+    title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)],'Interpreter','none','FontSize', 20)
+    xlabel('Test Image','Interpreter','none','FontSize', 20);
+    ylabel('Training Image','Interpreter','none','FontSize', 20);
+    set(gca,'FontSize',20)
 end
 
 %%
@@ -794,9 +808,11 @@ if PlotOn
     hold on
     plot(ResultPF,'r')
     hold off
-    title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]});
-    xlabel('Test Image');
-    ylabel('Training Image');
+    axis equal tight
+    title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]},'Interpreter','none','FontSize', 20);
+    xlabel('Test Image','Interpreter','none','FontSize', 20);
+    ylabel('Training Image','Interpreter','none','FontSize', 20);
+    set(gca,'FontSize',20)
 end
 %--------------------------------------------------------------------------
 
