@@ -1,3 +1,5 @@
+%Calculate the best RandPercentage and N for the particle filter
+
 clear all
 close all
 clc
@@ -8,8 +10,8 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %Run setup before! to compile matconvnet
 %%
 %------------------------VARIABLES-----------------------------------------
-PlotOn = 1; %Plot Debugging figures
-PlotMinConf = 1;%Show the lowest values on the confusion matrices
+PlotOn = 0; %Plot Debugging figures
+PlotMinConf = 0;%Show the lowest values on the confusion matrices
 
 %WARNING: If completely new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
 testDB = 1; %Select the testDB
@@ -321,23 +323,6 @@ else
 end
 confusionMatrixSceneRecogn = (confusionMatrixSceneRecogn - min(min(confusionMatrixSceneRecogn)))./max(max(confusionMatrixSceneRecogn));
 
-if PlotOn
-    figure;
-    imagesc(confusionMatrixSceneRecogn(:,1:testDBSize))
-    axis equal tight
-    set(gca,'FontSize',20)
-    title('Confusion Matrix Scene Recognition','Interpreter','none','FontSize', 20)
-    ylabel('Training Image','Interpreter','none','FontSize', 20)
-    xlabel('Test Image','Interpreter','none','FontSize', 20)
-    set(gca,'YDir','normal')
-    
-    if PlotMinConf
-        hold on;
-        [~,minimalValues] = min(confusionMatrixSceneRecogn(:,1:testDBSize));
-        scatter(1:testDBSize,minimalValues,4,'r','filled');
-        hold off
-    end
-end
 %--------------------------------------------------------------------------
 
 %%
@@ -482,23 +467,6 @@ else
 end
 confusionMatrixObjects = (confusionMatrixObjects - min(min(confusionMatrixObjects)))./max(max(confusionMatrixObjects));
 
-if PlotOn
-    figure;
-    imagesc(confusionMatrixObjects(:,1:testDBSize))
-    axis equal tight
-    set(gca,'FontSize',20)
-    title('Confusion Matrix Object recognition','Interpreter','none','FontSize', 20)
-    ylabel('Training Image','Interpreter','none','FontSize', 20)
-    xlabel('Test Image','Interpreter','none','FontSize', 20)
-    set(gca,'YDir','normal')
-    
-    if PlotMinConf
-        hold on;
-        [~,minimalValues] = min(confusionMatrixObjects(:,1:testDBSize));
-        scatter(1:testDBSize,minimalValues,4,'r','filled');
-        hold off
-    end
-end
 %--------------------------------------------------------------------------
 
 %%
@@ -525,57 +493,7 @@ else
 end
 confusionMatrixCNNFeat = (confusionMatrixCNNFeat - min(min(confusionMatrixCNNFeat)))./max(max(confusionMatrixCNNFeat));
 
-if PlotOn
-    figure;
-    imagesc(confusionMatrixCNNFeat(:,1:testDBSize))
-    axis equal tight
-    set(gca,'FontSize',20)
-    title('Confusion Matrix CNN features','Interpreter','none','FontSize', 20)
-    ylabel('Training Image','Interpreter','none','FontSize', 20)
-    xlabel('Test Image','Interpreter','none','FontSize', 20)
-    set(gca,'YDir','normal')
-    
-    if PlotMinConf
-        hold on;
-        [~,minimalValues] = min(confusionMatrixCNNFeat(:,1:testDBSize));
-        scatter(1:testDBSize,minimalValues,4,'r','filled');
-        hold off
-    end
-end
 %--------------------------------------------------------------------------
-
-
-%%
-% %------------------------Confusion Matrix Edges---------------------
-% if RunConfEdges
-%     disp('Start calculating the confusion matrix for the Edges')
-%     confusionMatrixEdges = zeros(trainingDBSize);
-%     for index = 1:testDBSize
-%         for i = 1:trainingDBSize
-%             confusionMatrixEdges(i,index) = abs(threshOut_training(i) - threshOut_test(index));
-%         end
-% %         if rem(index,100)==0
-% %                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
-% %         end
-%     end
-%     if exist('data/confMatrix.mat', 'file')
-%         save('data/confMatrix.mat','confusionMatrixEdges','-append');
-%     else
-%         save('data/confMatrix.mat','confusionMatrixEdges');
-%     end
-% else
-%     disp('ConfusionMatrix Edges not recalculated')
-%     load('confMatrix.mat','confusionMatrixEdges');
-% end
-% 
-% if PlotOn
-%     figure;
-%     imagesc(confusionMatrixEdges)
-%     title('Confusion Matrix Edges')
-%     ylabel('Training Image')
-%     xlabel('Test Image')
-% end
-% %--------------------------------------------------------------------------
 
 
 
@@ -583,44 +501,7 @@ end
 %------------------------Combine Confusion Matrices------------------------
 disp('Start combining the confusion matrices')
 
-%confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + (1-ConfMatCNN) .* confusionMatrixSceneRecogn;
-%confusionMatrix = confusionMatrixCNNFeat .* confusionMatrixSceneRecogn;
 confusionMatrix = ConfMatCNN .* confusionMatrixCNNFeat + ConfMatScene .* confusionMatrixSceneRecogn + ConfMatObj .* confusionMatrixObjects;
-if PlotOn
-    figure;
-    imagesc(confusionMatrix(:,1:testDBSize))
-    axis equal tight
-    set(gca,'FontSize',20)
-    title(['Combined Confusion Matrix with weights: CNN=',num2str(ConfMatCNN),'; Scene=',num2str(ConfMatScene),'; Obj=',num2str(ConfMatObj)],'Interpreter','none','FontSize', 20)
-    ylabel('Training Image','Interpreter','none','FontSize', 20)
-    xlabel('Test Image','Interpreter','none','FontSize', 20)
-    set(gca,'YDir','normal')
-    
-    if PlotMinConf
-        hold on;
-        [~,minimalValues] = min(confusionMatrix(:,1:testDBSize));
-        scatter(1:testDBSize,minimalValues,4,'r','filled');
-        hold off
-    end
-    
-    %Plot the histograms (not object-recogn)
-    figure;
-    histogram(confusionMatrixCNNFeat(:,1:testDBSize),'EdgeColor','none','Normalization','pdf')
-    hold on
-    histogram(confusionMatrixSceneRecogn(:,1:testDBSize),'EdgeColor','none','Normalization','pdf')
-    %histogram(confusionMatrixObjects(:,1:testDBSize),'EdgeColor','none','Normalization','probability')
-    histogram(confusionMatrix(:,1:testDBSize),'EdgeColor','none','Normalization','pdf')
-    legend('CNN Features','Scene Recognition','Combined')
-    hold off
-    set(gca,'FontSize',20)
-    title('Histogram of the confusion matrices','FontSize',20)
-
-    %Plot the histograms for object-recogn
-    figure;
-    histogram(confusionMatrixObjects(:,1:testDBSize).*n_box_max,'EdgeColor','none')
-    set(gca,'FontSize',20)
-    title('Histogram of the object-recognition confusion matrices','FontSize',20)
-end
 %--------------------------------------------------------------------------
 
 %%
@@ -629,342 +510,158 @@ disp('Search lowest difference')
 parfor index = 1:testDBSize
     [ResultValue(index),Result(index)] = min(confusionMatrix(:,index));
 end
-if PlotOn
-    figure;
-    plot(Result,'g')
-    axis equal tight
-    title('Route without filtering','Interpreter','none','FontSize', 20)
-    xlabel('Test Image','Interpreter','none','FontSize', 20);
-    ylabel('Training Image','Interpreter','none','FontSize', 20);
-    set(gca,'FontSize',20)
-    
-    figure
-    plot(Result,'g')
-    hold on
-end
-%%
-%------------------------Spatial Continuity check--------------------------
-for index = d:testDBSize
-    P(index) = 1;
-    for u = index-d+2:index
-        if abs(Result(u-1)-Result(u)) > epsilon
-            P(index) = 0;
-            break;
-        end
-    end
-end
-
-%Only motion model if P=0
-ResultSC(1) = Result(1);
-for index = 2:testDBSize
-    if P(index) == 1
-        ResultSC(index) = Result(index);
-    else
-        ResultSC(index) = ResultSC(index-1)+1;
-    end
-end
-ResultSC(ResultSC>trainingDBSize) = trainingDBSize;
-if PlotOn
-    plot(ResultSC,'r')
-    %plot(Resultnew-Result,'g')
-    hold off
-    axis equal tight
-    title(['Green = initial, Red = after Spatial Continuity Check with: epsilon = ' num2str(epsilon) '; d = ' num2str(d)],'Interpreter','none','FontSize', 20)
-    xlabel('Test Image','Interpreter','none','FontSize', 20);
-    ylabel('Training Image','Interpreter','none','FontSize', 20);
-    set(gca,'FontSize',20)
-end
 
 %%
-%-------------------------------Sequential Filter--------------------------
-% clear u
-% u = 1;
-% d=50;
-% for index = d:testDBSize
-%     X = ones(d,2);
-%     X(:,2) = index-d+1:index;
-%     Y = reshape(Resultnew(index-d+1:index),[d,1]);
-%     BetaAlpha(:,u) = X\Y; 
-%     u = u+1;
-% end
+PlotOn = 0;
+errorIndex = 1;
+for N = [100,200,300,1200]%100:100:12000
+    q = 1;
+    for RandPercentage = [0,0.1,0.5]%0:0.01:0.5
+        %-------------------------------Particle Filter--------------------------
+        %Initialize particles
+        particles = round(rand(N,1)*(trainingDBSize-1)+1);
 
-
-
-
-
-%%
-%To delete/fix
-%FeatureDetectNoiseStDev = 0.0775;%max(range(confusionMatrix))/2;
-
-
-
-
-
-
-%%
-%-------------------------------Particle Filter--------------------------
-%Initialize particles
-particles = round(rand(N,1)*(trainingDBSize-1)+1);
-
-if PlotPF
-    figure('units','normalized','outerposition',[0 0 1 1]);
-    vPF = VideoWriter([datapath,'VideoPF.avi']);
-    open(vPF)
-end
-w=ones(N,1)./N;
-ResultPF = zeros(1,testDBSize);
-for index = 1:testDBSize
-    
-    %Check this!
-    FeatureDetectNoiseStDev = sqrt(var(confusionMatrix(:,index)));
-    
-    if ~any(index == TestToDelete)
-        %Create weights using the normal distribution pdf & normalize
         w=ones(N,1)./N;
-        w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
-        w = w/sum(w);
-    end
-    
-    if PlotPF
-        %plot the particles
-        subplot(3,3,1:3);
-        stem(particles(:),w*10000);
-        axis([0 trainingDBSize 0 inf])
-        title('Particle weights');
-        xlabel('Training Image');
-        ylabel('Weight (*10000)');
-    end
-    
-    if ~any(index == TestToDelete)
-        %Resample the particles = leave out the unlikely particles
-        u = rand(N,1);
-        wc = cumsum(w);
-        [~,ind1] = sort([u;wc]);
-        ind=find(ind1<=N)-(0:N-1)';
-        particles=particles(ind);
-    end
-    
-    
-    %motion model
-    particles = round(particles + Speed + SpeedStDev*randn(size(particles)));
-    particles(particles<=0)=1;
-    particles(particles>=trainingDBSize)=trainingDBSize;
-    
-    if ~any(index == TestToDelete)
-        %Randomize a specific percentage to avoid locked particles
-        particles(round(rand(ceil(N*RandPercentage),1)*(N-1)+1)) = round(rand(ceil(N*RandPercentage),1)*(trainingDBSize-1)+1);
-    end
-    %Keep result of the PF
-    ResultPF(index) = mode(particles);
-    
-    if PlotPF
-        subplot(3,3,4);
-        imshow(testImg(:,:,:,index));
-        if ~any(index == TestToDelete)
-            title(['Test Image ',num2str(index)]);
-        else
-            title(['Test Image ',num2str(index),' ignored']);
-        end
-
-        subplot(3,3,5);
-        imshow(trainingImg(:,:,:,ResultPF(index)));
-        title(['Training Image ',num2str(ResultPF(index))]);
+        ResultPF = zeros(1,testDBSize);
+        tic
+        for index = 1:testDBSize
             
-        subplot(3,3,7:9);
-        histogram(particles,round(trainingDBSize/10));
-        hold on
-        axis([0 trainingDBSize 0 inf])
-        title('Particle histogram');
-        xlabel('Training Image');
-        ylabel('Amount of particles');
-        
-        
-        line([ResultPF(index) ResultPF(index)], [0 1000], 'color','r');
-        hold off
-        
-        subplot(3,3,6);
-        if threshOut_test(index) < edgeThresholdTest
-            bar([threshOut_test(index) threshOut_training(ResultPF(index))],'r');
-        else
-            bar([threshOut_test(index) threshOut_training(ResultPF(index))]);
+            %Check this!
+            FeatureDetectNoiseStDev = sqrt(var(confusionMatrix(:,index)));
+
+            if ~any(index == TestToDelete)
+                %Create weights using the normal distribution pdf & normalize
+                w=ones(N,1)./N;
+                w = w.*(1/(sqrt(2*pi)*FeatureDetectNoiseStDev)*exp(-(  confusionMatrix(particles(:),index)).^2/(2*FeatureDetectNoiseStDev^2)));
+                w = w/sum(w);
+                
+                %Resample the particles = leave out the unlikely particles
+                u = rand(N,1);
+                wc = cumsum(w);
+                [~,ind1] = sort([u;wc]);
+                ind=find(ind1<=N)-(0:N-1)';
+                particles=particles(ind);
+            end
+
+
+            %motion model
+            particles = round(particles + Speed + SpeedStDev*randn(size(particles)));
+            particles(particles<=0)=1;
+            particles(particles>=trainingDBSize)=trainingDBSize;
+
+            if ~any(index == TestToDelete)
+                %Randomize a specific percentage to avoid locked particles
+                particles(round(rand(ceil(N*RandPercentage),1)*(N-1)+1)) = round(rand(ceil(N*RandPercentage),1)*(trainingDBSize-1)+1);
+            end
+            %Keep result of the PF
+            ResultPF(index) = mode(particles);
+
+            
+           % storedParticles(:,index) = particles;
         end
-        axis([0.5 2.5 0 0.2])
-        title('Edges detected. first = testDB, last = trainingDB-result from PF');
-        xlabel('Test - Training');
-        ylabel('edges');
-        
-        
-        frame = getframe(gcf);
-        writeVideo(vPF,frame)
+        timing = toc/testDBSize;
+        %--------------------------------------------------------------------------
+
+        %%
+        %-----------------------------Calculate the error--------------------------
+        for i = 3
+            %Find the calculated test image coordinates
+            switch i %locationMode
+                case 1
+                    % No post-processing
+                    testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
+                    description = 'no post-processing';
+                case 2
+                    % Spatial Continuity filter
+                    testLocations = [TrainingCoordinates(ResultSC(1,:),1),TrainingCoordinates(ResultSC(1,:),2)];
+                    description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
+                case 3
+                    % Particle Filter
+                    testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
+                    %description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev)];
+            end
+
+            % Calc the amount of meter per pixel on the floorplan
+            MeterPixel = widthRoom68/(506-480);
+
+            %testCoordinates = Groundtruth
+            error = TestCoordinates - testLocations;
+            errorDistance = sqrt(error(:,1).^2 + error(:,2).^2).*MeterPixel;
+            
+            %errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
+            errorDistMean = sum(errorDistance)/size(errorDistance,1);
+            errorDistMax = max(errorDistance);
+            errorDistMedian = median(errorDistance);
+            errorPercentage = 100*size(find(errorDistance<2),1)/testDBSize;
+%             fprintf('\n--------------------------RESULT---------------------------------\n');
+%             fprintf('--INPUT:\n');
+%             fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
+%             fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
+%             fprintf('The ConfMatCNN is %.4f, ConfMatObj is %.4f, ConfMatScene is %.4f\n',ConfMatCNN,ConfMatObj,ConfMatScene);
+%             fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
+%             fprintf('\n--OUTPUT:\n');
+%             fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',size(TrainingToDelete,2),size(TestToDelete,2));
+%             fprintf('The mean of the error is %.4f meter, the median is %.4f meter and the maximal error is %.2f meter.\n',errorDistMean,errorDistMedian,errorDistMax);
+%             fprintf('In %.2f%% of the frames, the error is below 2 meter.\n',errorPercentage);
+%             fprintf('-----------------------------------------------------------------\n\n');
+        end
+        %--------------------------------------------------------------------------
+        finalResult(errorIndex,:) = [N RandPercentage*100 errorDistMean errorDistMedian errorDistMax errorPercentage timing];
+        errorIndex = errorIndex + 1;
+        q = q + 1;
     end
-    storedParticles(:,index) = particles;
 end
-if PlotPF
-    close(vPF);
-end
-if PlotOn
-    figure;
-    plot(Result,'g')
-    hold on
-    plot(ResultPF,'r')
-    hold off
-    axis equal tight
-    title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]},'Interpreter','none','FontSize', 20);
-    xlabel('Test Image','Interpreter','none','FontSize', 20);
-    ylabel('Training Image','Interpreter','none','FontSize', 20);
-    set(gca,'FontSize',20)
-end
-%--------------------------------------------------------------------------
 
 %%
-%-----------------------------Calculate the error--------------------------
-for i = 1:3
-    %Find the calculated test image coordinates
-    switch i %locationMode
-        case 1
-            % No post-processing
-            testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
-            description = 'no post-processing';
-        case 2
-            % Spatial Continuity filter
-            testLocations = [TrainingCoordinates(ResultSC(1,:),1),TrainingCoordinates(ResultSC(1,:),2)];
-            description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
+description = 'the particle filter';
+figure
+scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,3),'r','o') %mean
+hold on
+scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,4),'g','+') %median
+scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,5),'b','*') %Max
+%scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,7),'y') %percentage
+hold off
+title('The error using the particle filter','Interpreter','none','FontSize', 20)
+xlabel('N','Interpreter','none','FontSize', 20)
+ylabel('RandPercentage [%]','FontSize', 20)
+zlabel('error [meter]','Interpreter','none','FontSize', 20)
+set(gca,'FontSize',20)
+legend({'\color{red} Mean','\color{green} Median','\color{blue} Max','\color{black} Time/frame'},'FontSize',20)
+
+figure
+scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,7)) %Average Timing
+title('The timing per frame using the particle filter','Interpreter','none','FontSize', 20)
+xlabel('N','Interpreter','none','FontSize', 20)
+ylabel('RandPercentage [%]','FontSize', 20)
+zlabel('timing per frame [sec]','Interpreter','none','FontSize', 20)
+set(gca,'FontSize',20)
+
+
+
+fprintf('\n--------------------------RESULT---------------------------------\n');
+fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
+for index = 3:7 %the error characteristics
+    switch index
         case 3
-            % Particle Filter
-            testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
-            description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev)];
+            [best,bestIndex] =min(finalResult(:,index)); 
+            fprintf('\nThe lowest mean-error is: %.4f meter\n',best);
+        case 4
+            [best,bestIndex] =min(finalResult(:,index)); 
+            fprintf('\nThe lowest median-error is: %.4f meter\n',best);
+        case 5
+            [best,bestIndex] =min(finalResult(:,index)); 
+            fprintf('\nThe lowest maximal-error is: %.4f meter\n',best);
+        case 6
+            [best,bestIndex] =max(finalResult(:,index)); 
+            fprintf('\nThe lowest error percentage is: %.4f%%\n',best);
+        case 7
+            [best,bestIndex] =min(finalResult(:,index)); 
+            fprintf('\nThe fastest is: %.4f% sec/frame\n',best);
     end
 
-    % Calc the amount of meter per pixel on the floorplan
-    MeterPixel = widthRoom68/(506-480);
-
-    %testCoordinates = Groundtruth
-    error = TestCoordinates - testLocations;
-    errorDistance = sqrt(error(:,1).^2 + error(:,2).^2).*MeterPixel;
-    if PlotOn
-        figure;
-        plot(errorDistance)
-        title(['Error ',description]);
-        xlabel('Test Image');
-        ylabel('Error [meter]');
-
-        figure;
-        histogram(errorDistance)
-        title(['Histogram of the error ',description]);
-        xlabel('Error [meter]');
-        ylabel('Amount of frames');
-    end
-    %errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
-    errorDistMean = sum(errorDistance)/size(errorDistance,1);
-    errorDistMax = max(errorDistance);
-    errorDistMedian = median(errorDistance);
-    errorPercentage = 100*size(find(errorDistance<2),1)/testDBSize;
-    fprintf('\n--------------------------RESULT---------------------------------\n');
-    fprintf('--INPUT:\n');
-    fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
-    fprintf('The edge detection thresholds are: Training=%.4f; Test=%.4f\n',edgeThresholdTraining,edgeThresholdTest);
-    fprintf('The ConfMatCNN is %.4f, ConfMatObj is %.4f, ConfMatScene is %.4f\n',ConfMatCNN,ConfMatObj,ConfMatScene);
-    fprintf('The width of room 91.68 is set to %.1f meter\n',widthRoom68);
-    fprintf('\n--OUTPUT:\n');
-    fprintf('Due to the edge detection, this amount of frames are dropped: Training=%.0f; Test=%.0f\n',size(TrainingToDelete,2),size(TestToDelete,2));
-    fprintf('The mean of the error is %.4f meter, the median is %.4f meter and the maximal error is %.2f meter.\n',errorDistMean,errorDistMedian,errorDistMax);
-    fprintf('In %.2f%% of the frames, the error is below 2 meter.\n',errorPercentage);
-    fprintf('-----------------------------------------------------------------\n\n');
+    fprintf('The mean of the error is %.4f meter, the median is %.4f meter and the maximal error is %.2f meter.\n',finalResult(bestIndex,3),finalResult(bestIndex,4),finalResult(bestIndex,5));
+    fprintf('In %.2f%% of the frames, the error is below 2 meter.\n',finalResult(bestIndex,6));
+    fprintf('With N = %.1f particles; RandPercentage  = %.1f%\n',finalResult(bestIndex,1),finalResult(bestIndex,2));
 end
-%--------------------------------------------------------------------------
-
-
-%%
-%------------------------------Show traject on map--------------------------
-plotHeight = 1;
-if locationMode == 3
-    plotHeight = 2;
-end
-if PlotRoute
-    switch locationMode
-        case 1
-            % No post-processing
-            testLocations = [TrainingCoordinates(Result(1,:),1),TrainingCoordinates(Result(1,:),2)];
-            description = 'no post-processing';
-        case 2
-            % Spatial Continuity filter
-            testLocations = [TrainingCoordinates(ResultSC(1,:),1),TrainingCoordinates(ResultSC(1,:),2)];
-            description = ['the spatial continuity filter with: epsilon=' num2str(epsilon) '; d=' num2str(d)];
-        case 3
-            % Particle Filter
-            testLocations = [TrainingCoordinates(ResultPF(1,:),1),TrainingCoordinates(ResultPF(1,:),2)];
-            description = ['the particle filter with N=',num2str(N),'; Speed=',num2str(Speed),'; RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev)];
-    end
-    
-    figure('units','normalized','outerposition',[0 0 1 1]);
-    [X,map] = imread('floorplan.gif');
-    if ~isempty(map)
-        Im = ind2rgb(X,map);
-    end
-    %imshow(Im)
-    %hold on;
-    v = VideoWriter([datapath,'route.avi']);
-    open(v)
-    for i=1:testDBSize
-        subplot(plotHeight,3,1)
-        imshow(Im)
-        hold on;
-        plot(testLocations(i,1),testLocations(i,2),'or','MarkerSize',5,'MarkerFaceColor','r')
-        text(500,570,['current test-photo: ' num2str(i)],'Color','r')
-        hold off;
-        if bestScoreScene(i) > 1
-            title(['Looks like a ',uniqueScenes(bestScene(i)),' with score ',bestScoreScene(i)],'interpreter','none','color',[0,0,0])
-        elseif bestScoreScene(i) > 0.3
-            title(['Looks like a ',uniqueScenes(bestScene(i)),' with score ',bestScoreScene(i)],'interpreter','none','color',[1-bestScoreScene(i),1-bestScoreScene(i),1-bestScoreScene(i)])
-        end
-        
-        subplot(plotHeight,3,2)
-        imshow(testImg(:,:,:,i));
-        title(['Test image: ',num2str(i)])
-        
-        
-        
-        
-        if locationMode == 1
-            subplot(plotHeight,3,3)
-            imshow(trainingImg(:,:,:,Result(i)));
-            title(['(Original method) Training image: ',num2str(Result(i))])
-        elseif locationMode == 2
-            subplot(plotHeight,3,3)
-            imshow(trainingImg(:,:,:,ResultSC(i)));
-            title(['(Sequential Filter method) Training image: ',num2str(ResultSC(i))])
-        elseif locationMode == 3
-            subplot(plotHeight,3,3)
-            imshow(trainingImg(:,:,:,ResultPF(i)));
-            title(['(PF method) Training image: ',num2str(ResultPF(i))])
-            
-            subplot(plotHeight,3,4:6)
-            histogram(storedParticles(:,i),round(trainingDBSize/10));
-            hold on
-            axis([0 trainingDBSize 0 inf])
-            title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev)]);
-            xlabel('Training Image');
-            ylabel('Amount of particles');
-            line([ResultPF(i) ResultPF(i)], [0 1000], 'color','r');
-            hold off
-        
-        
-%             scatter(storedParticles(:,i),ones(size(storedParticles(:,i),1),1));
-%             hold on
-%             line([mode(storedParticles(:,i)) mode(storedParticles(:,i))], [0.5 1.5], 'color','r','linewidth',2);
-%             hold off
-%             axis([0 trainingDBSize 0 inf])
-%             %title('Particles histogram')
-%             title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev),'; FeatureDetectNoiseStDev = ',num2str(FeatureDetectNoiseStDev)]);
-%             xlabel('Training Image');
-%             %ylabel('Amount of particles');
-        end
-        
-        frame = getframe(gcf);
-        writeVideo(v,frame)
-        %pause(.02);
-    end
-    close(v);
-end
-
+fprintf('-----------------------------------------------------------------\n\n');
 
