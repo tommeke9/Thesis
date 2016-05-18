@@ -11,7 +11,7 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 PlotOn = 0; %Plot Debugging figures
 
 %WARNING: If change of testDB ==> RunCNN, RunConf, calcScenesTestDB, RunConfScene =1
-testDB = 1; %Select the testDB: 1 (same day) or 2 (after ~2 months)
+testDB = 2; %Select the testDB: 1 (same day) or 2 (after ~2 months)
 
 lastFClayer = 13;
 
@@ -39,22 +39,22 @@ calcObjRecTest = 0;
 RunConfObjects = 0;
 n_labels_max = 5; %Max amount of recognized objects per box
 
-ConfMatCNN = 0.750; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
-ConfMatObj = 0.125; % 
-ConfMatScene = 0.125;
+ConfMatCNN = 0.600; % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
+ConfMatObj = 0.100; % 
+ConfMatScene = 0.300;
 if ConfMatCNN+ConfMatObj+ConfMatScene ~=1
     error('Check the Confusion Matrix parameters.');
 end
 
 %Spatial Continuity check
-d = 40; % Length of evaluation window
-epsilon = 50;% maximal jumps of trainingframes in this evaluation window
+d = 35; % Length of evaluation window
+epsilon = 37;% maximal jumps of trainingframes in this evaluation window
 
 %Particle Filter
 %FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
 SpeedStDev = 2;                 %Standard deviation on calculated speed
 Speed = 1;                      %speed of walking
-RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
+RandPercentage = 0.01;           %Percentage of the particles to be randomized (1 = 100%)
 N = 2500;                       %Amount of particles
 PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
@@ -237,7 +237,7 @@ lastFCtraining(:,TrainingToDelete(:)) = [];
 %ConfusionMatrix and used for the localisation.
 
 disp('Load scenes & SVM')
-load('data/ESATsvm.mat');
+load('data/scene/ESATsvm.mat');
 disp('Scenes & SVM loaded')
 
 %Retrain or Load the TrainingDB
@@ -505,40 +505,7 @@ if PlotOn
     xlabel('Test Image')
 end
 %--------------------------------------------------------------------------
-
-
 %%
-% %------------------------Confusion Matrix Edges---------------------
-% if RunConfEdges
-%     disp('Start calculating the confusion matrix for the Edges')
-%     confusionMatrixEdges = zeros(trainingDBSize);
-%     for index = 1:testDBSize
-%         for i = 1:trainingDBSize
-%             confusionMatrixEdges(i,index) = abs(threshOut_training(i) - threshOut_test(index));
-%         end
-% %         if rem(index,100)==0
-% %                 fprintf('Confusion Calc. %d ~ %d of %d \n',index-99,index,testDBSize);
-% %         end
-%     end
-%     if exist('data/confMatrix.mat', 'file')
-%         save('data/confMatrix.mat','confusionMatrixEdges','-append');
-%     else
-%         save('data/confMatrix.mat','confusionMatrixEdges');
-%     end
-% else
-%     disp('ConfusionMatrix Edges not recalculated')
-%     load('confMatrix.mat','confusionMatrixEdges');
-% end
-% 
-% if PlotOn
-%     figure;
-%     imagesc(confusionMatrixEdges)
-%     title('Confusion Matrix Edges')
-%     ylabel('Training Image')
-%     xlabel('Test Image')
-% end
-% %--------------------------------------------------------------------------
-
 if RunError
     plotindex = 1;
     for ConfMatCNN = [0:0.05:1] % Multiplied with the CNN feature CNN, and 1-ConfMatCNN is multiplied with the Scene Recogn Conf Matrix.
@@ -875,14 +842,15 @@ for i = 1:3 %the three methods
         scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,6),'b','*') %Max
         %scatter3(finalResult(:,1),finalResult(:,2),finalResult(:,7),'y') %percentage
         hold off
-        title(['The error using ',description])
-        xlabel('ConfMatCNN')
-        ylabel('ConfMatObj')
-        zlabel('error')
-
-        legend('Mean','Median','Max')
+        title(['The error using ',description],'FontSize',20)
+        xlabel('ConfMatCNN','FontSize',20)
+        ylabel('ConfMatObj','FontSize',20)
+        zlabel('error [meter]','FontSize',20)
+        legend({'\color{red} Mean','\color{green} Median','\color{blue} Max'},'FontSize',20)
         %set(gca,'XTickLabel',unique(finalResult(:,1)));
         %set(gca,'XTickLabel',[4 8 15 21] )
+        set(gca,'FontSize',20)
+
     end
     
     

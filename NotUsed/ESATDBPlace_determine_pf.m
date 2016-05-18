@@ -652,7 +652,7 @@ legend({'\color{red} Mean','\color{green} Median','\color{blue} Max'},'FontSize'
 % ylabel('timing per frame [sec]','Interpreter','none','FontSize', 20)
 % set(gca,'FontSize',20)
 
-%Plot up to N=7000 for one value of RandPercentage
+%Plot the timing up to N=7000 for one value of RandPercentage
 figure
 indices = find(finalResult(1:121,2)==finalResult(3,2));
 scatter(finalResult(indices,1),finalResult(indices,7),'filled') %Average Timing
@@ -661,7 +661,34 @@ xlabel('N','Interpreter','none','FontSize', 20)
 ylabel('timing per frame [sec]','Interpreter','none','FontSize', 20)
 set(gca,'FontSize',20)
 
+%Plot the result up to N=7000 for one value of RandPercentage
+figure
+indices = find(finalResult(1:121,2)==1);
+scatter(finalResult(indices,1),finalResult(indices,3),'r','o')%mean
+hold on
+scatter(finalResult(indices,1),finalResult(indices,4),'g','+')%median
+scatter(finalResult(indices,1),finalResult(indices,5),'b','*')%max
+hold off
+legend({'\color{red} Mean','\color{green} Median','\color{blue} Max'},'FontSize',20)
+title('The N of the particle filter for RandPercentage = 1%','Interpreter','none','FontSize', 20)
+xlabel('N','Interpreter','none','FontSize', 20)
+ylabel('error [meter]','Interpreter','none','FontSize', 20)
+set(gca,'FontSize',20)
 
+%Plot the RandPercentage for N=2500
+figure
+scatter(finalResult(56:66,2),finalResult(56:66,3),'r','o')%mean
+hold on
+scatter(finalResult(56:66,2),finalResult(56:66,4),'g','+')%median
+scatter(finalResult(56:66,2),finalResult(56:66,5),'b','*')%max
+hold off
+legend({'\color{red} Mean','\color{green} Median','\color{blue} Max'},'FontSize',20)
+title('The RandPercentage of the particle filter for N = 2500','Interpreter','none','FontSize', 20)
+xlabel('RandPercentage [%]','Interpreter','none','FontSize', 20)
+ylabel('error [meter]','Interpreter','none','FontSize', 20)
+set(gca,'FontSize',20)
+
+    
 fprintf('\n--------------------------RESULT---------------------------------\n');
 fprintf(['For testDB nr.%d, using ',description,'\n'],testDB);
 for index = 3:7 %the error characteristics

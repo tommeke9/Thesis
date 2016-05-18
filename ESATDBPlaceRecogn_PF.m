@@ -57,11 +57,11 @@ epsilon = 37; %50;% maximal jumps of trainingframes in this evaluation window
 %FeatureDetectNoiseStDev = 200;  %Standard deviation on calculated difference of features
 SpeedStDev = 2;                 %Standard deviation on calculated speed
 Speed = 1;                      %speed of walking
-RandPercentage = 0.1;           %Percentage of the particles to be randomized (1 = 100%)
+RandPercentage = 0.01;           %Percentage of the particles to be randomized (1 = 100%)
 N = 2500;                       %Amount of particles
 PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
-locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
 %Error calculation
 widthRoom68 = 3; %used to calculate the error
@@ -748,7 +748,9 @@ for index = 1:testDBSize
     %motion model
     particles = round(particles + Speed + SpeedStDev*randn(size(particles)));
     particles(particles<=0)=1;
-    particles(particles>=trainingDBSize)=trainingDBSize;
+    %particles(particles>=trainingDBSize)=trainingDBSize;
+    particles(particles>trainingDBSize)=particles(particles>trainingDBSize)-trainingDBSize;%if particle is beyond the last trainingimage ==> start at the training 0
+
     
     if ~any(index == TestToDelete)
         %Randomize a specific percentage to avoid locked particles
@@ -809,7 +811,7 @@ if PlotOn
     plot(ResultPF,'r')
     hold off
     axis equal tight
-    title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev),'; FeatureDetectNoiseStDev=',num2str(FeatureDetectNoiseStDev)]},'Interpreter','none','FontSize', 20);
+    title({['Green = initial, Red = after Particle Filtering with N=',num2str(N),'; Speed=',num2str(Speed)],['RandPercentage=',num2str(RandPercentage),'; SpeedStDev=',num2str(SpeedStDev)]},'Interpreter','none','FontSize', 20);
     xlabel('Test Image','Interpreter','none','FontSize', 20);
     ylabel('Training Image','Interpreter','none','FontSize', 20);
     set(gca,'FontSize',20)
@@ -844,15 +846,17 @@ for i = 1:3
     if PlotOn
         figure;
         plot(errorDistance)
-        title(['Error ',description]);
-        xlabel('Test Image');
-        ylabel('Error [meter]');
+        title(['Error of ',description],'FontSize', 20);
+        xlabel('Test Image','FontSize', 20);
+        ylabel('Error [meter]','FontSize', 20);
+        set(gca,'FontSize',20)
 
         figure;
         histogram(errorDistance)
-        title(['Histogram of the error ',description]);
-        xlabel('Error [meter]');
-        ylabel('Amount of frames');
+        title(['Histogram of the error ',description],'FontSize', 20);
+        xlabel('Error [meter]','FontSize', 20);
+        ylabel('Amount of frames','FontSize', 20);
+        set(gca,'FontSize',20)
     end
     %errorDistMSE = sum(errorDistance.^2)/size(errorDistance,1);
     errorDistMean = sum(errorDistance)/size(errorDistance,1);
