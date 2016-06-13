@@ -62,7 +62,7 @@ locationMode = 2; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filte
 
 %Error calculation
 widthRoom68 = 3; %used to calculate the error
-RunError = 1; %1 = recalc the error for every method; 0 = load this error
+RunError = 0; %1 = recalc the error for every method; 0 = load this error
 %--------------------------------------------------------------------------
 %%
 % load the pre-trained CNN
@@ -970,4 +970,18 @@ if PlotRoute
     close(v);
 end
 
+%plot for timing 25/5
+finalResult = finalResult_sc;
+figure
+test=find(finalResult(:,2)==0.1);
+plot(finalResult(test,1),finalResult(test,4),'r','LineWidth',1) %mean
+hold on
+plot(finalResult(test,1),finalResult(test,5),'g','LineWidth',1) %median
+plot(finalResult(test,1),finalResult(test,6),'b','LineWidth',1) %Max
+hold off
+title('The error ','FontSize',20)
+xlabel('ConfMatCNN','FontSize',20)
+ylabel('error [meter]','FontSize',20)
+legend({'\color{red} Mean','\color{green} Median','\color{blue} Max'},'FontSize',20)
+set(gca,'FontSize',20)
 

@@ -29,7 +29,7 @@ calcObjLocTraining = 0;
 calcObjRecTraining = 0;
 %-----
 
-RunObjects_test = 1;% 1= run the object localization & recognition during the testfase
+RunObjects_test = 0;% 1= run the object localization & recognition during the testfase
 
 PlotRoute = 1;  %1 = plot the route on a floorplan
 
@@ -316,8 +316,8 @@ end
 cam = webcam(1);
 elapsedTime = 1;
 
-for loopIndex = 1:500
-    tic
+for loopIndex = 1:10
+    total = tic;
     fprintf('This frame took %.2f sec to compute, this is the same as %.2f trainingframes.\n ',elapsedTime,round(elapsedTime*29.97));
     testImg = snapshot(cam);
     testImg = imresize(testImg,[NaN 256]);
@@ -328,30 +328,38 @@ for loopIndex = 1:500
     testImgNorm = im_temp - averageImage ;
     
     %Run cnn
+    tic
     res = vl_simplenn(net, testImgNorm) ;
     lastFCtemp = squeeze(gather(res(lastFClayer+1).x));
     lastFCtest = lastFCtemp(:);
+    toc
     
     %Scene recognition
+    tic
     scoresTest = zeros(1,size(uniqueScenes,1));
     for i = 1:size(uniqueScenes,1)
         scoresTest(i) = W(:,i)'*lastFCtest + B(i) ;
     end
     [bestScoreScene, bestScene] = max(scoresTest(:)) ;
-    
+    toc
     %objectLocalisation & recognition
+    
     if RunObjects_test
+        tic
         testObjectLocation = calc_object_locations( n_box_max, testImg );
+        toc
+        tic
         testObjectRecognition = calc_object_recognition( testImg, testObjectLocation, net, n_labels_max );
         
         bestScoreObject_test = squeeze(testObjectRecognition(1,2,:,:)) ; % bestScoreObject_test(Frame_number,img_Number)
         objectNumber_test = squeeze(testObjectRecognition(1,1,:,:)) ; % objectNumber_test(Frame_number,img_Number)
         objectName_test = reshape(net.meta.classes.description(objectNumber_test(:)),size(objectNumber_test));
+        toc
     end
-    
     
     %Make confusion-array
     if locationMode == 1 || locationMode == 2
+        tic
         %make confusion array
         confusionArrayCNN = zeros(1,trainingDBSize);
         confusionArrayScene = zeros(1,trainingDBSize);
@@ -390,6 +398,7 @@ for loopIndex = 1:500
         
         %select lowest value
         [ResultValue,Result] = min(confusionArray(:));
+        toc
     end
     
     switch locationMode
@@ -397,6 +406,7 @@ for loopIndex = 1:500
             testLocation = [TrainingCoordinates(Result,1),TrainingCoordinates(Result,2)];
             
         case 2 %Spatial Filtering
+            tic
             d = ceil(d/(29.97*elapsedTime));
             epsilon = ceil(epsilon/(29.97*elapsedTime));
             %save the last 'd' results
@@ -430,16 +440,16 @@ for loopIndex = 1:500
             end
  
             testLocation = [TrainingCoordinates(ResultSC,1),TrainingCoordinates(ResultSC,2)];
-            
+            toc
             
         case 3 %Particle Filtering
             %only check trainingimages if particles are present ==> smaller
             %confusion array
-            
+            tic
             %Edge detect
             [~,threshOut_test] = edge(rgb2gray(testImg));
             if threshOut_test < edgeThresholdTest
-                TestToDelete = 1;
+                TestToDelete = 1
             else
                 TestToDelete = 0;
             end
@@ -511,10 +521,12 @@ for loopIndex = 1:500
             
             %PF
             testLocation = [TrainingCoordinates(ResultPF,1),TrainingCoordinates(ResultPF,2)];
+            toc
     end
     
     
     %Show location on map
+    tic
     if PlotRoute
         subplot(plotHeight,3,1)
         imshow(floorplan)
@@ -559,5 +571,6 @@ for loopIndex = 1:500
 
         end
     end
-    elapsedTime = toc;
+    toc
+    elapsedTime = toc(total);
 end

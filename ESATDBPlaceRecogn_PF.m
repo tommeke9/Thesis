@@ -8,11 +8,11 @@ addpath data deps/matconvnet-1.0-beta16 data/ESAT-DB
 %Run setup before! to compile matconvnet
 %%
 %------------------------VARIABLES-----------------------------------------
-PlotOn = 1; %Plot Debugging figures
-PlotMinConf = 1;%Show the lowest values on the confusion matrices
+PlotOn = 0; %Plot Debugging figures
+PlotMinConf = 0;%Show the lowest values on the confusion matrices
 
 %WARNING: If completely new testDB ==> RunCNN, RunConfCNN, calcScenesTestDB, RunConfScene, calcObjLocTest, calcObjRecTest, RunConfObjects =1
-testDB = 1; %Select the testDB
+testDB = 2; %Select the testDB
 
 lastFClayer = 13;
 
@@ -24,7 +24,7 @@ RunCNN = 0;     %1 = run the CNN, 0 = Load the CNN
 RunCNN_training = 0; %1 = run the CNN for the training (only with RunCNN = 1)
 
 RunConfCNN = 0;    %1 = recalc the Conf. matrix, 0 = Load the Conf. Matrix
-PlotRoute = 0;  %1 = plot the route on a floorplan
+PlotRoute = 1;  %1 = plot the route on a floorplan
 
 %Scene Recognition
 calcScenesTrainingDB = 0;   %1 if recalc of the scenes for the trainingDB is necessary.
@@ -61,7 +61,7 @@ RandPercentage = 0.01;           %Percentage of the particles to be randomized (
 N = 2500;                       %Amount of particles
 PlotPF = 0;                     %1 = plot the PF for debugging & testing
 
-locationMode = 3; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
+locationMode = 1; %1 = No correction, 2 = Spatial Continuity, 3 = Particle Filtering
 
 %Error calculation
 widthRoom68 = 3; %used to calculate the error
@@ -728,11 +728,11 @@ for index = 1:testDBSize
     if PlotPF
         %plot the particles
         subplot(3,3,1:3);
-        stem(particles(:),w*10000);
-        axis([0 trainingDBSize 0 inf])
+        stem(particles(:),w./max(w(:)));
+        axis([0 trainingDBSize 0 1])
         title('Particle weights');
         xlabel('Training Image');
-        ylabel('Weight (*10000)');
+        ylabel('Weight (normalized)');
     end
     
     if ~any(index == TestToDelete)
@@ -773,26 +773,28 @@ for index = 1:testDBSize
         title(['Training Image ',num2str(ResultPF(index))]);
             
         subplot(3,3,7:9);
-        histogram(particles,round(trainingDBSize/10));
+        %histogram(particles,trainingDBSize);
+        histogram(particles,trainingDBSize);
         hold on
-        axis([0 trainingDBSize 0 inf])
-        title('Particle histogram');
+        axis([0 trainingDBSize 0 150])
+        title(['Particle histogram with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev)]);
         xlabel('Training Image');
         ylabel('Amount of particles');
         
         
-        line([ResultPF(index) ResultPF(index)], [0 1000], 'color','r');
+        line([ResultPF(index) ResultPF(index)], [0 N], 'color','r');
         hold off
         
         subplot(3,3,6);
         if threshOut_test(index) < edgeThresholdTest
-            bar([threshOut_test(index) threshOut_training(ResultPF(index))],'r');
+            %bar([threshOut_test(index) threshOut_training(ResultPF(index))],'r');
+            bar(threshOut_test(index),'r');
         else
-            bar([threshOut_test(index) threshOut_training(ResultPF(index))]);
+            %bar([threshOut_test(index) threshOut_training(ResultPF(index))]);
+            bar(threshOut_test(index));
         end
-        axis([0.5 2.5 0 0.2])
-        title('Edges detected. first = testDB, last = trainingDB-result from PF');
-        xlabel('Test - Training');
+        axis([0.5 1.5 0 0.2])
+        title('Edges detected in test');
         ylabel('edges');
         
         
@@ -914,7 +916,7 @@ if PlotRoute
         imshow(Im)
         hold on;
         plot(testLocations(i,1),testLocations(i,2),'or','MarkerSize',5,'MarkerFaceColor','r')
-        text(500,570,['current test-photo: ' num2str(i)],'Color','r')
+        %text(500,570,['current test-photo: ' num2str(i)],'Color','r')
         hold off;
         if bestScoreScene(i) > 1
             title(['Looks like a ',uniqueScenes(bestScene(i)),' with score ',bestScoreScene(i)],'interpreter','none','color',[0,0,0])
@@ -925,7 +927,11 @@ if PlotRoute
         subplot(plotHeight,3,2)
         imshow(testImg(:,:,:,i));
         title(['Test image: ',num2str(i)])
-        
+        if threshOut_test(i) < edgeThresholdTest
+            title(['Test image: ',num2str(i)],'Color','r')
+        else
+            title(['Test image: ',num2str(i)])
+        end
         
         
         
@@ -943,13 +949,14 @@ if PlotRoute
             title(['(PF method) Training image: ',num2str(ResultPF(i))])
             
             subplot(plotHeight,3,4:6)
-            histogram(storedParticles(:,i),round(trainingDBSize/10));
+            %histogram(storedParticles(:,i),round(trainingDBSize/10));
+            histogram(storedParticles(:,i),trainingDBSize);
             hold on
-            axis([0 trainingDBSize 0 inf])
+            axis([0 trainingDBSize 0 N])
             title(['Particles filter with N = ',num2str(N),'; RandPercentage = ',num2str(RandPercentage),'; SpeedStDev = ',num2str(SpeedStDev)]);
             xlabel('Training Image');
             ylabel('Amount of particles');
-            line([ResultPF(i) ResultPF(i)], [0 1000], 'color','r');
+            line([ResultPF(i) ResultPF(i)], [0 N], 'color','r');
             hold off
         
         
